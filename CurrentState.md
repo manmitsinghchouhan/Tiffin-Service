@@ -1,6 +1,6 @@
 # Current State — Tiffin Service Management System
 
-**Last Updated:** October 16, 2026  
+**Last Updated:** October 19, 2026  
 **Stack:** MERN (Node.js, Express 5, MongoDB / Mongoose 9, React 19 + Vite 8)  
 **Architecture:** Modular ES Modules (`"type": "module"`), HTTP-only Cookie-Based JWT Sessions, React Context for Auth State, Axios with Credentials
 
@@ -111,14 +111,15 @@ Located at [backend/src/middleware/authMiddleware.js](file:///c:/Users/manmi/One
 - **Backend Controller:** [src/controllers/providerAuthController.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/controllers/providerAuthController.js)
 - **Backend Routes:** [src/routes/providerAuthRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/providerAuthRoutes.js) (mounted at `/api/provider` and `/api/provider/auth`)
 
-#### Lifecycle State Machine:
+#### Lifecycle State Machine (Approach 2: Approval Milestone & Transition):
 
-The presence or absence of the `TiffinProvider` record determines the provider's exact lifecycle stage:
+The presence, verification status, and milestone acknowledgement of the `TiffinProvider` record determines the provider's exact lifecycle stage:
 
-1. `stage === "NEEDS_PROFILE"`: User registered (Step 1), needs to complete kitchen onboarding (Step 2).
+1. `stage === "NEEDS_PROFILE"`: User registered (Step 1), needs to complete kitchen onboarding wizard (Step 2).
 2. `stage === "PENDING_APPROVAL"`: Onboarding wizard submitted (`TiffinProvider` created with `verificationStatus: "PENDING"`), awaiting admin review.
-3. `stage === "VERIFIED"`: Admin approved application, ready for full dashboard access.
-4. `stage === "REJECTED"`: Application rejected with reason.
+3. `stage === "APPROVED_MILESTONE"`: Admin verified kitchen (`verificationStatus === "VERIFIED"` and `hasAcknowledgedApproval === false`). Status page displays the celebratory **Approval Milestone** screen with a **"Launch Kitchen Dashboard ➔"** action.
+4. `stage === "VERIFIED"`: Provider clicked **"Launch Kitchen Dashboard"** (`hasAcknowledgedApproval === true`). Direct, permanent access to `/provider/dashboard` on all subsequent logins and page visits.
+5. `stage === "REJECTED"`: Application rejected with admin `rejectionReason`. Provides an option to update details and re-apply via `PATCH /api/provider/reapply`.
 
 #### Frontend Modules & Route Guards:
 
@@ -134,10 +135,15 @@ The presence or absence of the `TiffinProvider` record determines the provider's
   - Fields: `businessName`, `contactNumber` (pre-filled from Step 1, editable), `address`, `city` dropdown (Ahmedabad, Mumbai, Pune, Delhi NCR, Bangalore), `serviceArea` interactive locality pills + custom area tag input, 3 dietary cards (`VEG`, `NON_VEG`, `BOTH`), `description`, and `imageUrl` with live preview.
   - Submits to `POST /api/provider/onboarding` $\rightarrow$ creates `TiffinProvider` document $\rightarrow$ updates context $\rightarrow$ transitions immediately to `/provider/status`.
   - **Route Guard:** Redirects unauthenticated users to `/provider/login`; redirects providers who have already submitted onboarding to `/provider/status`.
-- **Application Status Page:** [src/pages/ProviderStatus.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/pages/ProviderStatus.jsx) (`/provider/status`)
-  - Shows live review badge ("PENDING APPROVAL"), applicant & kitchen details, delivery areas, dietary type, 24–48h SLA notice, live status refresh, and sign-out button.
-  - **Route Guard:** Redirects unauthenticated users to `/provider/login`; redirects providers with incomplete onboarding (`stage === "NEEDS_PROFILE"`) back to `/provider/onboarding`.
-- **Status:** **Fully Implemented, Verified, and Tested**.
+- **Application Status & Milestone Page:** [src/pages/ProviderStatus.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/pages/ProviderStatus.jsx) (`/provider/status`)
+  - **Milestone View (`APPROVED_MILESTONE`):** Celebratory screen with party poppers, verified kitchen privileges checklist, and a prominent **"Launch Kitchen Dashboard ➔"** button that invokes `PATCH /api/provider/acknowledge-approval` and transitions to `/provider/dashboard`.
+  - **Review View (`PENDING_APPROVAL`):** Shows live review badge ("PENDING APPROVAL"), applicant & kitchen details, delivery areas, dietary type, 24–48h SLA notice, live status refresh, and sign-out button.
+  - **Declined View (`REJECTED`):** Displays administrative rejection feedback with an interactive inline re-application form calling `PATCH /api/provider/reapply` to update details and return to pending status.
+  - **Route Guard:** Redirects unauthenticated users to `/provider/login`; redirects incomplete providers to `/provider/onboarding`; redirects already acknowledged verified providers to `/provider/dashboard`.
+- **Kitchen Dashboard:** [src/pages/ProviderDashboard.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/pages/ProviderDashboard.jsx) (`/provider/dashboard`)
+  - Active verified partner portal displaying kitchen badge, metrics bar (Active Plans, Subscribers, Daily Prep, Payouts), certified kitchen profile summary, and upcoming functional roadmap modules.
+  - **Route Guard:** Strictly restricted to authenticated providers with `stage === "VERIFIED"`.
+- **Status:** **Provider Lifecycle, Approval Milestone & Dashboard Flow Fully Built, Verified, and Operational**.
 
 ---
 
@@ -277,27 +283,49 @@ Tiffin Service/
      - Updates account status (`ACTIVE`, `INACTIVE`, `SUSPENDED`) with self-modification guard for current admin.
   9. `DELETE /api/admin/users/:id`:
      - Permanently removes user account and cleans up associated provider profile if applicable (protected against self-deletion).
-- **Status:** **Admin Backend Fully Built, Configured, and Ready for Frontend Consumption**.
+- **Status:** **Admin Backend & Frontend Fully Built, Integrated, and Verified**.
 
 ---
 
-## 8. Next Steps on the Roadmap
+## 8. Provider Approval Milestone & Transition Architecture (Approach 2)
 
-1. **Admin Frontend Dashboard & Approval Pages:**
-   - Build responsive Admin Layout with collapsible/fixed common sidebar (`Dashboard Overview`, `Provider Approvals`, `Users Directory`, `Settings`).
-   - Page 1: **Admin Dashboard Overview** (`/admin`):
-     - Metrics summary cards (Pending Approvals, Verified Kitchens, Customers, Revenue).
-     - Recent Activity timelines (recent applications and user registrations).
-   - Page 2: **Approve Tiffin Provider Page** (`/admin/providers`):
-     - Filterable status tabs (`Pending Review`, `Verified`, `Rejected`, `All`).
-     - Search & pagination.
-     - Review details modal with full kitchen address, dietary type, and photos.
-     - 1-click Approve and Reasoned Rejection modals.
-2. **Provider Dashboard (Post-Verification):**
-   - Build Provider Portal for verified providers (`stage === "VERIFIED"`).
-3. **Provider Plan & Menu Management:**
-   - CRUD endpoints & UI for providers to create and update their Tiffin Plans (`POST /api/plans`).
-   - Weekly menu management for breakfast, lunch, and dinner (`POST /api/menus`).
-4. **Customer Discovery & Subscription Flow:**
+1. **Lifecycle Stages (`computeProviderStage`):**
+   - `NEEDS_PROFILE`: Provider registered Step 1, needs to fill Step 2 onboarding (`/provider/onboarding`).
+   - `PENDING_APPROVAL`: Step 2 submitted, waiting for Admin verification (`/provider/status`).
+   - `APPROVED_MILESTONE`: Admin has verified kitchen in DB (`verificationStatus: "VERIFIED"`, `hasAcknowledgedApproval: false`). Shows celebratory milestone card with unlocked privileges and "Launch Kitchen Dashboard ➔" button.
+   - `VERIFIED`: Provider clicked "Launch Kitchen Dashboard" (`hasAcknowledgedApproval: true`), unlocking permanent access to `/provider/dashboard`.
+   - `REJECTED`: Application rejected with feedback, inline re-application form enabled.
+
+2. **Route-Specific Token Isolation (`authMiddleware.js`):**
+   - Requests to `/api/provider/*` are strictly forced to use `providerToken`.
+   - Requests to `/api/admin/*` are strictly forced to use `adminToken`.
+   - Requests to `/api/customer/*` are strictly forced to use `customerToken`.
+   - Generic fallback across tokens ensures backwards compatibility.
+   - Eliminates multi-role cookie collisions when testing both Admin and Provider side-by-side in the same browser.
+
+3. **Dual-Check Milestone Condition (`ProviderStatus.jsx`):**
+   - The milestone screen no longer depends solely on the derived `providerStage` string. It evaluates:
+     ```javascript
+     const isApprovedMilestone =
+       providerStage === 'APPROVED_MILESTONE' ||
+       (providerProfile?.verificationStatus === 'VERIFIED' && !providerProfile?.hasAcknowledgedApproval);
+     ```
+   - If the database indicates `"VERIFIED"` and `hasAcknowledgedApproval` is `false`, the celebratory milestone screen is guaranteed to show.
+
+4. **Live Auto-Polling & Silent Session Sync (`ProviderStatus.jsx` & `AuthContext.jsx`):**
+   - Every 4 seconds, `ProviderStatus.jsx` silently checks `/api/provider/me` in the background with `checkAuth(false)` while in `isPending` state.
+   - `checkAuth(showLoading = false)` prevents full-page loading spinner flicker during background polls.
+   - The moment an admin clicks "Approve" in the Admin Dashboard, the provider's screen transitions into the celebratory milestone screen automatically without requiring a manual browser refresh.
+
+---
+
+## 9. Next Steps on the Roadmap
+
+1. **Provider Kitchen Dashboard (`/provider/dashboard`):**
+   - Active dashboard UI for approved providers with stats, active meal subscribers, and incoming orders.
+2. **Provider Plan & Menu Management:**
+   - CRUD endpoints & UI for providers to create and update their Tiffin Packages (`POST /api/plans`).
+   - Weekly menu scheduling for breakfast, lunch, and dinner (`POST /api/menus`).
+3. **Customer Discovery & Subscription Flow:**
    - Provider catalog & plan browsing for customers.
    - Ordering & recurring subscriptions with purchase-time price snapshotting.

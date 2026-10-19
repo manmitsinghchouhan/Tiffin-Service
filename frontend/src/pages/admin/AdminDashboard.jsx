@@ -18,8 +18,8 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import AdminLayout from '../components/AdminLayout';
-import api from '../services/api';
+import AdminLayout from '../../components/AdminLayout';
+import api from '../../services/api';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);

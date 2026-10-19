@@ -5,6 +5,8 @@ import {
   providerLogin,
   providerLogout,
   providerRegister,
+  acknowledgeApproval,
+  reapplyOnboarding,
 } from "../controllers/providerAuthController.js";
 import { authenticate, isProvider } from "../middleware/authMiddleware.js";
 
@@ -19,5 +21,14 @@ router.post("/logout", providerLogout);
 router.get("/me", authenticate, isProvider, getProviderProfile);
 router.post("/onboarding", authenticate, isProvider, completeOnboarding);
 router.post("/profile", authenticate, isProvider, completeOnboarding);
+
+// Milestone Transition & Re-application
+router.patch(
+  "/acknowledge-approval",
+  authenticate,
+  isProvider,
+  acknowledgeApproval,
+);
+router.patch("/reapply", authenticate, isProvider, reapplyOnboarding);
 
 export default router;

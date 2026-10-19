@@ -64,6 +64,13 @@ const tiffinProviderSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    verifiedAt: {
+      type: Date,
+    },
+    hasAcknowledgedApproval: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

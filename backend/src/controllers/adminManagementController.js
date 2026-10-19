@@ -191,6 +191,8 @@ export const verifyProvider = asyncHandler(async (req, res) => {
 
   // Update status to VERIFIED and clear any previous rejection reason
   provider.verificationStatus = "VERIFIED";
+  provider.verifiedAt = new Date();
+  provider.hasAcknowledgedApproval = false;
   provider.rejectionReason = undefined;
   await provider.save();
 

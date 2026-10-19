@@ -26,9 +26,9 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import AdminLayout from '../components/AdminLayout';
-import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
+import AdminLayout from '../../components/AdminLayout';
+import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AdminUsers() {
   const { user: currentAdmin } = useAuth();

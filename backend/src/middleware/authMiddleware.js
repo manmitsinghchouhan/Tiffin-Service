@@ -5,12 +5,28 @@ import User from "../models/User.js";
 
 // Authenticate user via HTTP-only cookie or JWT Bearer Token
 export const authenticate = asyncHandler(async (req, res, next) => {
-  let token =
-    req.cookies?.providerToken ||
-    req.cookies?.customerToken ||
-    req.cookies?.adminToken ||
-    req.cookies?.token;
+  let token;
+  const url = req.originalUrl || req.url || "";
 
+  // 1. Role-specific route matching for multi-role cookies in same browser
+  if (url.includes("/admin")) {
+    token = req.cookies?.adminToken;
+  } else if (url.includes("/provider")) {
+    token = req.cookies?.providerToken;
+  } else if (url.includes("/customer")) {
+    token = req.cookies?.customerToken;
+  }
+
+  // 2. Generic fallback across all cookies
+  if (!token) {
+    token =
+      req.cookies?.providerToken ||
+      req.cookies?.adminToken ||
+      req.cookies?.customerToken ||
+      req.cookies?.token;
+  }
+
+  // 3. Fallback to Bearer authorization header if present
   if (!token && req.headers.authorization?.startsWith("Bearer ")) {
     token = req.headers.authorization.split(" ")[1];
   }

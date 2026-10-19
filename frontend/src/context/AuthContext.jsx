@@ -20,8 +20,10 @@ export function AuthProvider({ children }) {
    * On initial app load or page refresh:
    * Verify session securely via protected /me endpoints using HTTP-only cookies
    */
-  const checkAuth = useCallback(async () => {
-    setLoading(true);
+  const checkAuth = useCallback(async (showLoading = false) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     const pathname = window.location.pathname;
 
     try {
@@ -90,12 +92,14 @@ export function AuthProvider({ children }) {
       setProviderStage(null);
       setProviderProfile(null);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    checkAuth();
+    checkAuth(true);
   }, [checkAuth]);
 
   /**
@@ -188,6 +192,34 @@ export function AuthProvider({ children }) {
   };
 
   /**
+   * Provider Acknowledge Approval (Sets hasAcknowledgedApproval: true and unlocks stage: VERIFIED)
+   */
+  const acknowledgeApproval = async () => {
+    const { data } = await api.patch('/provider/acknowledge-approval');
+    if (data.data) {
+      setProviderStage(data.data.stage || 'VERIFIED');
+      if (data.data.providerProfile) {
+        setProviderProfile(data.data.providerProfile);
+      }
+    }
+    return data;
+  };
+
+  /**
+   * Provider Reapply (Resubmits onboarding data for rejected applications)
+   */
+  const reapplyProvider = async (updateData) => {
+    const { data } = await api.patch('/provider/reapply', updateData);
+    if (data.data) {
+      setProviderStage(data.data.stage || 'PENDING_APPROVAL');
+      if (data.data.providerProfile) {
+        setProviderProfile(data.data.providerProfile);
+      }
+    }
+    return data;
+  };
+
+  /**
    * Admin Login
    */
   const loginAdmin = async (email, password) => {
@@ -234,6 +266,8 @@ export function AuthProvider({ children }) {
     registerProvider,
     logoutProvider,
     submitOnboarding,
+    acknowledgeApproval,
+    reapplyProvider,
     loginAdmin,
     logoutAdmin,
     checkAuth,

@@ -19,7 +19,12 @@ const computeProviderStage = (providerProfile) => {
     case "PENDING":
       return "PENDING_APPROVAL";
     case "VERIFIED":
-      return "VERIFIED";
+      // Approach 2: If verified but hasn't acknowledged the approval milestone yet,
+      // return APPROVED_MILESTONE so the celebration screen is shown.
+      // Once acknowledged, stage is permanently VERIFIED (direct dashboard).
+      return providerProfile.hasAcknowledgedApproval
+        ? "VERIFIED"
+        : "APPROVED_MILESTONE";
     case "REJECTED":
       return "REJECTED";
     default:
@@ -281,5 +286,104 @@ export const providerLogout = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "Provider logged out successfully",
+  });
+});
+
+/**
+ * @desc    Provider celebrates/acknowledges approval milestone and unlocks permanent dashboard access
+ * @route   PATCH /api/provider/acknowledge-approval
+ * @access  Private (Provider only)
+ */
+export const acknowledgeApproval = asyncHandler(async (req, res) => {
+  const providerProfile = await TiffinProvider.findOne({
+    userId: req.user._id,
+  });
+
+  if (!providerProfile) {
+    throw new ApiError(404, "Provider profile not found");
+  }
+
+  if (providerProfile.verificationStatus !== "VERIFIED") {
+    throw new ApiError(
+      400,
+      `Cannot acknowledge approval. Current verification status is "${providerProfile.verificationStatus}".`,
+    );
+  }
+
+  // Set milestone acknowledged flag to true
+  providerProfile.hasAcknowledgedApproval = true;
+  await providerProfile.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Approval milestone acknowledged! Kitchen dashboard access unlocked.",
+    data: {
+      stage: "VERIFIED",
+      providerProfile,
+    },
+  });
+});
+
+/**
+ * @desc    Re-apply / resubmit onboarding for a rejected kitchen application
+ * @route   PATCH /api/provider/reapply
+ * @access  Private (Provider only)
+ */
+export const reapplyOnboarding = asyncHandler(async (req, res) => {
+  const {
+    businessName,
+    contactNumber,
+    address,
+    city,
+    serviceArea,
+    foodType,
+    description,
+    imageUrl,
+  } = req.body;
+
+  const providerProfile = await TiffinProvider.findOne({
+    userId: req.user._id,
+  });
+
+  if (!providerProfile) {
+    throw new ApiError(404, "Provider profile not found");
+  }
+
+  if (providerProfile.verificationStatus !== "REJECTED") {
+    throw new ApiError(
+      400,
+      `Can only re-apply if current application was rejected. Current status: "${providerProfile.verificationStatus}".`,
+    );
+  }
+
+  // Update provided fields
+  if (businessName) providerProfile.businessName = businessName.trim();
+  if (contactNumber) providerProfile.contactNumber = contactNumber.trim();
+  if (address) providerProfile.address = address.trim();
+  if (city) providerProfile.city = city.trim();
+  if (serviceArea) {
+    providerProfile.serviceArea = Array.isArray(serviceArea)
+      ? serviceArea.map((s) => String(s).trim()).filter(Boolean)
+      : typeof serviceArea === "string"
+        ? serviceArea.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+  }
+  if (foodType) providerProfile.foodType = foodType;
+  if (description !== undefined) providerProfile.description = description.trim();
+  if (imageUrl !== undefined) providerProfile.imageUrl = imageUrl.trim();
+
+  // Reset verification status back to PENDING and clear rejection info
+  providerProfile.verificationStatus = "PENDING";
+  providerProfile.rejectionReason = undefined;
+  providerProfile.hasAcknowledgedApproval = false;
+  await providerProfile.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Application resubmitted successfully. Operations team is reviewing.",
+    data: {
+      stage: "PENDING_APPROVAL",
+      providerProfile,
+    },
   });
 });

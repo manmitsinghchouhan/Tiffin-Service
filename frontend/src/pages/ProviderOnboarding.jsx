@@ -127,8 +127,17 @@ export default function ProviderOnboarding() {
     return <Navigate to="/provider/login" replace />;
   }
 
-  // If already submitted profile (stage is PENDING_APPROVAL or VERIFIED), redirect to status page
-  if (providerStage === 'PENDING_APPROVAL' || providerStage === 'VERIFIED') {
+  // If verified already, redirect to dashboard
+  if (providerStage === 'VERIFIED') {
+    return <Navigate to="/provider/dashboard" replace />;
+  }
+
+  // If already submitted profile (PENDING_APPROVAL, APPROVED_MILESTONE, or REJECTED), redirect to status page
+  if (
+    providerStage === 'PENDING_APPROVAL' ||
+    providerStage === 'APPROVED_MILESTONE' ||
+    providerStage === 'REJECTED'
+  ) {
     return <Navigate to="/provider/status" replace />;
   }
 

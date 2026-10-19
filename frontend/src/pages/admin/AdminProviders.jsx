@@ -23,8 +23,8 @@ import {
   RefreshCw,
   FileText,
 } from 'lucide-react';
-import AdminLayout from '../components/AdminLayout';
-import api from '../services/api';
+import AdminLayout from '../../components/AdminLayout';
+import api from '../../services/api';
 
 const QUICK_REJECTION_REASONS = [
   'Incomplete or unverified kitchen address details',

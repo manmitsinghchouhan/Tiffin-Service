@@ -108,9 +108,12 @@ export default function ProviderAuth({ initialMode = "register" }) {
 
         setTimeout(() => {
           // If profile is incomplete, go to Step 2 Onboarding Wizard
-          // If profile was already submitted (PENDING_APPROVAL or VERIFIED), go to Application Status page
+          // If profile is verified and acknowledged, go directly to kitchen dashboard
+          // Otherwise (APPROVED_MILESTONE, PENDING_APPROVAL, REJECTED), go to status page
           if (stage === "NEEDS_PROFILE") {
             navigate("/provider/onboarding");
+          } else if (stage === "VERIFIED") {
+            navigate("/provider/dashboard");
           } else {
             navigate("/provider/status");
           }
