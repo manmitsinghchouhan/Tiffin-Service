@@ -6,12 +6,14 @@ import Order from "./Order.js";
 import Subscription from "./Subscription.js";
 import Payment from "./Payment.js";
 import Feedback from "./Feedback.js";
+import WeeklyMenu from "./WeeklyMenu.js";
 
 export {
   User,
   TiffinProvider,
   TiffinPlan,
   MenuItem,
+  WeeklyMenu,
   Order,
   Subscription,
   Payment,
@@ -23,6 +25,7 @@ export default {
   TiffinProvider,
   TiffinPlan,
   MenuItem,
+  WeeklyMenu,
   Order,
   Subscription,
   Payment,

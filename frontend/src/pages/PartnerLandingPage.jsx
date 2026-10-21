@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useAuth } from "../context/AuthContext";
 import {
   UserPlus,
   LogIn,
@@ -18,6 +19,14 @@ import {
 } from "lucide-react";
 
 export default function PartnerLandingPage() {
+  const { isProvider, providerProfile, providerStage } = useAuth();
+
+  const providerTargetRoute =
+    providerStage === 'VERIFIED'
+      ? '/provider/dashboard'
+      : providerStage === 'NEEDS_PROFILE'
+      ? '/provider/onboarding'
+      : '/provider/status';
   const benefits = [
     {
       icon: <TrendingUp className="w-6 h-6 text-blue-600" />,
@@ -118,60 +127,86 @@ export default function PartnerLandingPage() {
               all your menus in one intuitive platform.
             </p>
 
-            {/* Two Action Cards (Matching Image 1 Reference) */}
-            <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-16 text-left">
-              {/* Option A: Join Now (New Provider Registration) */}
-              <div className="relative group bg-white rounded-3xl p-7 border-2 border-emerald-500/20 hover:border-emerald-500 shadow-xl shadow-emerald-500/5 hover:shadow-2xl hover:shadow-emerald-500/10 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
-                <div className="absolute top-4 right-4 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  New Partner
+            {/* Action Cards (Shows direct Dashboard shortcut if already logged in as Provider) */}
+            {isProvider && user ? (
+              <div className="max-w-xl mx-auto mb-16 bg-white rounded-3xl p-8 border-2 border-emerald-500 shadow-xl shadow-emerald-500/10 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-xs">
+                  <ChefHat className="w-7 h-7" />
                 </div>
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-5 shadow-sm">
-                    <UserPlus className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                    Join Now
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed mb-6">
-                    Start your 2-step onboarding wizard. Create your account and
-                    set up your kitchen profile.
-                  </p>
+                <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Authenticated Kitchen Partner</span>
                 </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                  {providerProfile?.businessName || user.name}
+                </h3>
+                <p className="text-sm text-slate-600 mb-6">
+                  You are currently signed in to your partner account. Jump straight to your Kitchen Dashboard to manage menus, orders, and plans.
+                </p>
                 <Link
-                  to="/provider/register"
-                  className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all"
+                  to={providerTargetRoute}
+                  className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-8 rounded-2xl shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all"
                 >
-                  <span>Register as a Provider</span>
+                  <ChefHat className="w-4 h-4" />
+                  <span>Go to Provider Dashboard</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
+            ) : (
+              <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-16 text-left">
+                {/* Option A: Join Now (New Provider Registration) */}
+                <div className="relative group bg-white rounded-3xl p-7 border-2 border-emerald-500/20 hover:border-emerald-500 shadow-xl shadow-emerald-500/5 hover:shadow-2xl hover:shadow-emerald-500/10 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
+                  <div className="absolute top-4 right-4 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    New Partner
+                  </div>
+                  <div>
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-5 shadow-sm">
+                      <UserPlus className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                      Join Now
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                      Start your 2-step onboarding wizard. Create your account and
+                      set up your kitchen profile.
+                    </p>
+                  </div>
+                  <Link
+                    to="/provider/register"
+                    className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all"
+                  >
+                    <span>Register as a Provider</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
 
-              {/* Option B: Already a Partner (Login) */}
-              <div className="relative group bg-white rounded-3xl p-7 border border-slate-200 hover:border-blue-500 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
-                <div className="absolute top-4 right-4 bg-blue-50 text-blue-700 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  Existing Partner
-                </div>
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-5 shadow-sm">
-                    <LogIn className="w-6 h-6" />
+                {/* Option B: Already a Partner (Login) */}
+                <div className="relative group bg-white rounded-3xl p-7 border border-slate-200 hover:border-blue-500 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
+                  <div className="absolute top-4 right-4 bg-blue-50 text-blue-700 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    Existing Partner
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                    Already a Partner?
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed mb-6">
-                    Sign in to your provider account to view your application
-                    approval status or manage meals.
-                  </p>
+                  <div>
+                    <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-5 shadow-sm">
+                      <LogIn className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                      Already a Partner?
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                      Sign in to your provider account to view your application
+                      approval status or manage meals.
+                    </p>
+                  </div>
+                  <Link
+                    to="/provider/login"
+                    className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-blue-600 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-md transition-all"
+                  >
+                    <span>Go to Provider Login</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
                 </div>
-                <Link
-                  to="/provider/login"
-                  className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-blue-600 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-md transition-all"
-                >
-                  <span>Go to Provider Login</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
               </div>
-            </div>
+            )}
 
             {/* Quick Metrics Bar */}
             <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-16 pt-8 border-t border-slate-200/60 max-w-2xl mx-auto">

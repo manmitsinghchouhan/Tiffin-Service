@@ -1,12 +1,26 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Menu, X, User as UserIcon, LogOut } from 'lucide-react';
+import { ArrowRight, Menu, X, User as UserIcon, LogOut, ChefHat } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, isCustomer, logoutCustomer } = useAuth();
+  const {
+    user,
+    isCustomer,
+    isProvider,
+    providerProfile,
+    providerStage,
+    logoutCustomer,
+    logoutProvider,
+  } = useAuth();
 
+  const providerTargetRoute =
+    providerStage === 'VERIFIED'
+      ? '/provider/dashboard'
+      : providerStage === 'NEEDS_PROFILE'
+      ? '/provider/onboarding'
+      : '/provider/status';
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-100 transition-all">
@@ -69,6 +83,26 @@ export default function Navbar() {
                   <span>Logout</span>
                 </button>
               </div>
+            ) : isProvider && user ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+                  <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">
+                    <ChefHat className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="max-w-[140px] truncate">
+                    {providerProfile?.businessName || user.name?.split(' ')[0] || 'Partner'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={logoutProvider}
+                  className="text-xs font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Log out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Logout</span>
+                </button>
+              </div>
             ) : (
               <Link 
                 to="/login" 
@@ -79,15 +113,26 @@ export default function Navbar() {
             )}
           </nav>
 
-          {/* Right Action: Become a Provider */}
+          {/* Right Action: Become a Provider OR Provider Dashboard */}
           <div className="hidden md:flex items-center gap-4">
-            <Link
-              to="/partner"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-            >
-              <span>Become a Provider</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            {isProvider && user ? (
+              <Link
+                to={providerTargetRoute}
+                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              >
+                <ChefHat className="w-4 h-4" />
+                <span>Provider Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              <Link
+                to="/partner"
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              >
+                <span>Become a Provider</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -139,6 +184,24 @@ export default function Navbar() {
                 <span>Logout</span>
               </button>
             </div>
+          ) : isProvider && user ? (
+            <div className="py-2 pl-3 space-y-2 border-t border-slate-100">
+              <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                <ChefHat className="w-4 h-4 text-emerald-600" />
+                <span>{providerProfile?.businessName || user.name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  logoutProvider();
+                  setMobileMenuOpen(false);
+                }}
+                className="text-sm font-medium text-red-500 hover:text-red-700 flex items-center gap-2 py-1 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
           ) : (
             <Link
               to="/login"
@@ -150,14 +213,26 @@ export default function Navbar() {
           )}
 
           <div className="pt-2">
-            <Link
-              to="/partner"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-full shadow-md shadow-blue-600/20 cursor-pointer"
-            >
-              <span>Become a Provider</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            {isProvider && user ? (
+              <Link
+                to={providerTargetRoute}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-full shadow-md shadow-emerald-600/20 cursor-pointer"
+              >
+                <ChefHat className="w-4 h-4" />
+                <span>Provider Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              <Link
+                to="/partner"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-full shadow-md shadow-blue-600/20 cursor-pointer"
+              >
+                <span>Become a Provider</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import adminAuthRoutes from "./adminAuthRoutes.js";
 import adminManagementRoutes from "./adminManagementRoutes.js";
 import customerAuthRoutes from "./customerAuthRoutes.js";
 import providerAuthRoutes from "./providerAuthRoutes.js";
+import providerMenuRoutes from "./providerMenuRoutes.js";
 
 const router = Router();
 
@@ -19,6 +20,9 @@ router.use("/auth", customerAuthRoutes);
 // Provider Authentication & Onboarding Routes
 router.use("/provider/auth", providerAuthRoutes);
 router.use("/provider", providerAuthRoutes);
+
+// Provider Weekly Menu Management
+router.use("/provider/menu", providerMenuRoutes);
 
 // Future modular route mounts:
 // router.use("/auth", authRoutes);

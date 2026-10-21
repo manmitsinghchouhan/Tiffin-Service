@@ -5,7 +5,7 @@ const menuItemSchema = new mongoose.Schema(
     planId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TiffinPlan",
-      required: [true, "Plan ID is required"],
+      required: false,
       index: true,
     },
     providerId: {
@@ -44,6 +44,19 @@ const menuItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: [120, "Item name cannot exceed 120 characters"],
     },
+    diet: {
+      type: String,
+      enum: {
+        values: ["Veg", "Non-Veg"],
+        message: "{VALUE} is not a valid dietary type",
+      },
+      default: "Veg",
+    },
+    timing: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     description: {
       type: String,
       trim: true,
@@ -66,8 +79,9 @@ const menuItemSchema = new mongoose.Schema(
   },
 );
 
-// Compound index for efficient weekly menu lookups
-menuItemSchema.index({ planId: 1, dayOfWeek: 1, mealType: 1 });
+// Compound indexes for efficient weekly menu lookups per provider or per plan
+menuItemSchema.index({ providerId: 1, dayOfWeek: 1, mealType: 1 });
+menuItemSchema.index({ planId: 1, dayOfWeek: 1, mealType: 1 }, { sparse: true });
 
 const MenuItem = mongoose.model("MenuItem", menuItemSchema);
 

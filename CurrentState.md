@@ -319,13 +319,127 @@ Tiffin Service/
 
 ---
 
-## 9. Next Steps on the Roadmap
+## 9. Provider Kitchen Dashboard Overview (Frontend Architecture & Design System)
 
-1. **Provider Kitchen Dashboard (`/provider/dashboard`):**
-   - Active dashboard UI for approved providers with stats, active meal subscribers, and incoming orders.
-2. **Provider Plan & Menu Management:**
-   - CRUD endpoints & UI for providers to create and update their Tiffin Packages (`POST /api/plans`).
-   - Weekly menu scheduling for breakfast, lunch, and dinner (`POST /api/menus`).
+The Provider Dashboard (`/provider/dashboard`) has been built in accordance with the light, crisp design system matching the reference UI (`media_1792136838218.png`):
+
+1. **Design System & Aesthetics:**
+   - Background: Soft, light neutral (`bg-[#f4f7fc]`).
+   - Cards: Pure white (`bg-white`), `rounded-3xl`, soft subtle borders (`border-slate-200/80`), and light drop shadows (`shadow-sm hover:shadow-md`).
+   - Accent colors: Crisp royal blue (`#2563eb`), emerald green for status indicators and icons, warm amber for alerts and attention pills.
+   - Dynamic time-based greeting: "Good morning / afternoon / evening, [Kitchen Name] 🌿" with sub-headline "Here's your kitchen at a glance" and "View public profile ↗" quick action.
+
+2. **Modular Component Hierarchy (`frontend/src/components/provider/`):**
+   - **`ProviderSidebar.jsx`**:
+     - Brand Header with ChefHat icon: `TiffinHub` PARTNER PORTAL.
+     - `WORKSPACE` Navigation: Overview, Weekly Menu, Tiffin Plans, Orders, Subscriptions, Customers.
+     - `MANAGEMENT` Navigation: Payments & Earnings, Feedback & Complaints, Business Profile.
+     - Footer: Settings and Sign Out.
+     - Mobile drawer responsive slide-out support.
+   - **`ProviderHeader.jsx`**:
+     - Search bar (`Search orders, plans, customers...`).
+     - Notification bell with unread indicator badge.
+     - Kitchen Profile Pill: Circular kitchen image avatar, kitchen name, green checkmark `Verified Partner`, and quick dropdown menu.
+   - **`DashboardStats.jsx`**:
+     - 4 core metrics cards:
+       - *Today's Orders*: 18 with alert chip `! 5 need attention`.
+       - *Active Subscriptions*: 42 (`Across 3 active plans`).
+       - *Active Tiffin Plans*: 3 (`Manage your packages`).
+       - *This Month's Revenue*: ₹28,450 (`Payments overview`).
+   - **`TodaysMenu.jsx`**:
+     - Day selector dropdown (`MONDAY v`).
+     - Meal rows for Breakfast, Lunch, and Dinner with real food photography thumbnails, Sun/Moon icons, and sample meal descriptions (e.g., Poha, fruit & chai; Dal, rice, roti & sabzi; Paneer curry, roti & salad).
+     - Fixed weekly menu informational notice banner.
+   - **`OrderActivity.jsx`**:
+     - Filter dropdown (`Last 7 days v`).
+     - Real-time order status counts: New orders (5), Accepted (9), Completed (4) with distinctive iconography.
+     - Direct link to `View all orders →`.
+   - **`RecentOrders.jsx`**:
+     - Order log table: `#ORD1003` (Aarav Patel - Lunch), `#ORD1002` (Neha Shah - Dinner), `#ORD1001` (Rohan Mehta - Weekly Veg Plan).
+     - Status badges (`Pending`, `Accepted`, `Paid`).
+   - **`QuickActions.jsx`**:
+     - Shortcuts for: *Edit weekly menu*, *Create tiffin plan*, *Review orders*.
+   - **`ProviderDashboard.jsx` (Page Controller)**:
+     - Route guards verifying active role (`PROVIDER`), completed profile (`providerStage !== 'NEEDS_PROFILE'`), and admin approval (`providerStage === 'VERIFIED'`).
+     - Toast notification system giving feedback when navigating to modules that will be connected in upcoming steps.
+
+---
+
+## 10. Provider Weekly Menu Management (Frontend Architecture & Flow)
+
+The Weekly Menu interface has been implemented following the attached reference UI and modular design:
+
+1. **Main Architectural Concepts:**
+   - **Fixed Weekly Menu (7 Days × 3 Meal Categories):**
+     - Seven distinct days: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday.
+     - Each day has three independent meal categories: **Breakfast**, **Lunch**, and **Dinner**.
+     - Saving or editing food items under one day and meal category (e.g. *Monday → Breakfast*) never mutates or overwrites other meals or other days.
+   - **Persistent & Reactive State Sharing:**
+     - The weekly menu data is maintained and synchronized between the dedicated `WeeklyMenu` component and the Overview page's `TodaysMenu` component.
+     - Updates made in Weekly Menu immediately reflect on the Overview dashboard.
+
+2. **Created Components (`frontend/src/components/provider/`):**
+   - **`WeeklyMenu.jsx`**:
+     - Top breadcrumb: `← Workspace / Weekly Menu` (allows jumping back to Overview anytime).
+     - Header: `Weekly Menu 🌿` title with subtitle, live cloud sync status badge (`Saved to cloud` / `Saving changes...`), and `Manage Menu` button.
+     - 7 Day Pill Tabs: Monday through Sunday (Monday active by default, sleek active blue pill styling).
+     - 3 Meal Cards:
+       - **Breakfast**: Blue Sun icon, timing window `(8:00 AM - 10:00 AM)`, `Edit` and `+ Add Items` buttons, dish thumbnail cards with `🌱 (Veg)` and `🍗 (Non-Veg)` badges.
+       - **Lunch**: Green Sun icon, timing window `(12:30 PM - 2:00 PM)`, `Edit` and `+ Add Items` buttons.
+       - **Dinner**: Purple Moon icon, timing window `(7:30 PM - 9:00 PM)`, `Edit` and `+ Add Items` buttons.
+   - **`AddItemModal.jsx`**:
+     - Context-aware modal automatically targeted to the selected day & meal (e.g. `Monday • Breakfast`).
+     - Quick Popular Dishes selector with automatic presets (Poha, Chai, Paratha, Dal Tadka, Roti, Paneer Curry, Salad, etc.).
+     - Item name input, Veg / Non-Veg toggle pill, and custom image URL support with instant photo preview.
+     - Supports adding multiple items consecutively.
+   - **`EditMealModal.jsx`**:
+     - Custom meal timing input (e.g. `8:00 AM - 10:00 AM`).
+     - Live dish list with inline name edits, Veg/Non-Veg toggling, and per-item removal with trash action.
+   - **`ManageMenuModal.jsx`**:
+     - Batch operations:
+       - **Copy Day Menu**: Copies all items from the current day to any selected combination of other days (connected to `POST /api/provider/menu/copy-day`).
+       - **Clear Day**: Clears all dishes for the current day with safety confirmation.
+       - **Reset Defaults**: Restores all 7 days back to the rich default schedule (connected to `POST /api/provider/menu/reset`).
+   - **`TodaysMenu.jsx` (Updated)**:
+     - Connected to the live weekly menu data.
+     - Automatically reflects real dishes and timings.
+     - "Edit weekly menu" button and meal cards route directly to the Weekly Menu manager.
+   - **`App.jsx`**:
+     - Direct route added: `/provider/menu` mapping to `ProviderDashboard` with `initialTab="weekly-menu"`.
+
+3. **Provider Weekly Menu Backend & Live Sync (Completed & Verified):**
+   - **Schema Architecture ([backend/src/models/WeeklyMenu.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/models/WeeklyMenu.js))**:
+     - **1 Provider = Exactly 1 Document**: Replaced the 63 document-per-item anti-pattern with an embedded 7-day schedule document. 100 providers now equal 100 documents rather than 6,300 documents.
+     - `providerId`: Reference to `TiffinProvider` (`unique: true`, indexed).
+     - Embedded 7 Days (`Monday` - `Sunday`), each containing `breakfast`, `lunch`, `dinner` slots with `timing` and embedded dish objects (`id`, `name`, `diet`, `image`).
+     - **Clean Slate for Providers**: New providers start with empty `items: []` arrays rather than pre-seeded dummy dishes, giving each provider full freedom to define their own meals.
+   - **Controller & Sanitization ([backend/src/controllers/providerMenuController.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/controllers/providerMenuController.js))**:
+     - Strict multi-tenant isolation: every query resolves the authenticated provider's ID from `req.user._id`.
+     - `sanitizeSchedule`: Filters input strictly against allowed days and allowed meals (`breakfast`, `lunch`, `dinner`), preventing any stray keys from causing validation failures.
+     - `getWeeklyMenu` (`GET /api/provider/menu`): Returns the clean 7-day weekly schedule for the provider in 1 indexed lookup.
+     - `saveWeeklyMenu` (`PUT /api/provider/menu`): Atomically updates the provider's entire 7-day menu via single `findOneAndUpdate`.
+     - `addMenuItem` (`POST /api/provider/menu/item`): Appends a dish to the target day and meal slot.
+     - `updateMealWindow` (`PATCH /api/provider/menu/meal`): Updates timing or dish list.
+     - `deleteMenuItem` (`DELETE /api/provider/menu/item/:id`): Removes specific dish from the array.
+     - `copyDayMenu` (`POST /api/provider/menu/copy-day`): Clones one day's meals across target days in memory and saves atomically.
+     - `resetWeeklyMenu` (`POST /api/provider/menu/reset`): Resets schedule back to a clean empty slate (`items: []`).
+   - **Routes ([backend/src/routes/providerMenuRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/providerMenuRoutes.js))**:
+     - Protected with `authenticate` and `isProvider` middleware. Mounted at `/api/provider/menu`.
+   - **Frontend Integration & Bug Fixes ([frontend/src/components/provider/WeeklyMenu.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/WeeklyMenu.jsx))**:
+     - **Resolved Parameter Mismatch**: Fixed `handleOpenAddItems` to accept both `(mealType)` from card buttons and `(day, mealType)` from `EditMealModal.jsx`, eliminating the bug where `targetMealType` became `"Monday"` and caused the `mealType: MONDAY` 500 error.
+     - **Sanitized `handleAddItem` & `handleUpdateMeal`**: Added lowercasing and validation check ensuring only valid meal types (`breakfast`, `lunch`, `dinner`) are modified.
+     - **Empty Initial Template**: Removed hardcoded fake dishes from `INITIAL_MENU_DATA`, matching the backend's clean slate policy.
+
+---
+
+## 11. Next Steps on the Roadmap
+
+1. **Provider Tiffin Plans & Packages Module (`/provider/plans`):**
+   - Plan creation & management (`POST /api/provider/plans`, `GET /api/provider/plans`).
+   - Linking meals/menus to specific subscription plans.
+2. **Provider Orders Management Module:**
+   - Real-time order tracking, daily delivery status updates, and dispatch lists.
 3. **Customer Discovery & Subscription Flow:**
-   - Provider catalog & plan browsing for customers.
-   - Ordering & recurring subscriptions with purchase-time price snapshotting.
+   - Customer-facing kitchen menu browsing and subscription checkout.
+
+

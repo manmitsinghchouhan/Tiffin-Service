@@ -35,8 +35,9 @@ export default function App() {
           {/* Provider Application Status ("Pending Approval" / "Milestone" / "Rejected") */}
           <Route path="/provider/status" element={<ProviderStatus />} />
 
-          {/* Provider Active Kitchen Dashboard */}
+          {/* Provider Active Kitchen Dashboard & Weekly Menu */}
           <Route path="/provider/dashboard" element={<ProviderDashboard />} />
+          <Route path="/provider/menu" element={<ProviderDashboard initialTab="weekly-menu" />} />
 
           {/* Customer Authentication */}
           <Route path="/login" element={<CustomerAuth initialMode="login" />} />
