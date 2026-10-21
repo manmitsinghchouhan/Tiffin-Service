@@ -4,6 +4,7 @@ import adminManagementRoutes from "./adminManagementRoutes.js";
 import customerAuthRoutes from "./customerAuthRoutes.js";
 import providerAuthRoutes from "./providerAuthRoutes.js";
 import providerMenuRoutes from "./providerMenuRoutes.js";
+import providerPlanRoutes from "./providerPlanRoutes.js";
 
 const router = Router();
 
@@ -23,6 +24,9 @@ router.use("/provider", providerAuthRoutes);
 
 // Provider Weekly Menu Management
 router.use("/provider/menu", providerMenuRoutes);
+
+// Provider Tiffin Plans Management
+router.use("/provider/plans", providerPlanRoutes);
 
 // Future modular route mounts:
 // router.use("/auth", authRoutes);

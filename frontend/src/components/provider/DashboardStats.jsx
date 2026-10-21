@@ -8,10 +8,11 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-export default function DashboardStats({ onCardClick }) {
+export default function DashboardStats({ onNavigate, onCardClick }) {
   const stats = [
     {
       id: 'today-orders',
+      tab: 'orders',
       title: "Today's Orders",
       value: '18',
       icon: ShoppingBag,
@@ -24,6 +25,7 @@ export default function DashboardStats({ onCardClick }) {
     },
     {
       id: 'subscriptions',
+      tab: 'subscriptions',
       title: 'Active Subscriptions',
       value: '42',
       icon: Users,
@@ -33,6 +35,7 @@ export default function DashboardStats({ onCardClick }) {
     },
     {
       id: 'plans',
+      tab: 'tiffin-plans',
       title: 'Active Tiffin Plans',
       value: '3',
       icon: Package,
@@ -42,6 +45,7 @@ export default function DashboardStats({ onCardClick }) {
     },
     {
       id: 'revenue',
+      tab: 'payments',
       title: "This Month's Revenue",
       value: '₹28,450',
       icon: BarChart3,
@@ -51,6 +55,14 @@ export default function DashboardStats({ onCardClick }) {
     },
   ];
 
+  const handleClick = (stat) => {
+    if (onNavigate) {
+      onNavigate(stat.tab);
+    } else if (onCardClick) {
+      onCardClick(stat.title);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
       {stats.map((stat) => {
@@ -58,7 +70,7 @@ export default function DashboardStats({ onCardClick }) {
         return (
           <div
             key={stat.id}
-            onClick={() => onCardClick?.(stat.title)}
+            onClick={() => handleClick(stat)}
             className="group bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
           >
             {/* Top row: Icon and chevron */}
@@ -66,7 +78,7 @@ export default function DashboardStats({ onCardClick }) {
               <div
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.iconBg} shadow-sm group-hover:scale-105 transition-transform`}
               >
-                <Icon className="w-6 h-6" />
+                <Icon className="w-6 h-6 stroke-[2.2]" />
               </div>
               <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all" />
             </div>

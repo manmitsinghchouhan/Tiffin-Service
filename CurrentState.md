@@ -430,16 +430,58 @@ The Weekly Menu interface has been implemented following the attached reference 
      - **Sanitized `handleAddItem` & `handleUpdateMeal`**: Added lowercasing and validation check ensuring only valid meal types (`breakfast`, `lunch`, `dinner`) are modified.
      - **Empty Initial Template**: Removed hardcoded fake dishes from `INITIAL_MENU_DATA`, matching the backend's clean slate policy.
 
+4. **Provider Tiffin Plans Backend Module (Completed & Verified):**
+   - **Enhanced Schema ([backend/src/models/TiffinPlan.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/models/TiffinPlan.js))**:
+     - `providerId`: Reference to `TiffinProvider` (`required: true`, indexed).
+     - `name`: Plan title (e.g., "Monthly Executive Veg Lunch").
+     - `description`: Detailed description of the offering.
+     - `durationDays`: Duration of the subscription (e.g. 7, 15, 30 days, min: 1).
+     - `mealsPerDay`: Number of meals dispatched per day (default: 1, min: 1).
+     - `mealType`: Target meal window enum (`BREAKFAST`, `LUNCH`, `DINNER`, `LUNCH_DINNER`, `ALL_MEALS`).
+     - `diet`: Dietary category enum (`VEG`, `NON_VEG`, `BOTH`).
+     - `deliveryDays`: Service delivery schedule enum (`ALL_DAYS`, `WEEKDAYS_ONLY`, `MON_TO_SAT`).
+     - `features`: Array of string highlights/contents (e.g., `["4 Phulkas", "Dal Tadka", "Seasonal Sabzi", "Rice", "Salad"]`).
+     - `price`: Plan subscription price (required, min: 0).
+     - `isSubscriptionAvailable`: Boolean (defaults to `true`).
+     - `status`: Plan status enum (`ACTIVE`, `INACTIVE`, defaults to `ACTIVE`).
+     - Compound Index: `{ providerId: 1, status: 1 }` for high-performance scoped plan queries.
+   - **Controller ([backend/src/controllers/providerPlanController.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/controllers/providerPlanController.js))**:
+     - `getProviderPlans` (`GET /api/provider/plans`): Returns all plans belonging to the authenticated provider, with optional query filters (`?status=ACTIVE`, `?diet=VEG`, `?mealType=LUNCH`).
+     - `createProviderPlan` (`POST /api/provider/plans`): Validates input, calculates `mealsPerDay` based on `mealType` if not provided, and links directly to `providerId`.
+     - `getProviderPlanById` (`GET /api/provider/plans/:id`): Fetches a single plan with ownership verification.
+     - `updateProviderPlan` (`PATCH /api/provider/plans/:id`): Updates plan fields with strict ownership check.
+     - `togglePlanStatus` (`PATCH /api/provider/plans/:id/toggle-status`): Toggles plan between `ACTIVE` and `INACTIVE`.
+     - `deleteProviderPlan` (`DELETE /api/provider/plans/:id`): Checks if active customer subscriptions exist (`Subscription.countDocuments({ planId, status: "ACTIVE" })`). If active subscribers exist, safely deactivates and archives to `INACTIVE`; otherwise deletes permanently.
+   - **Routes & Mounting ([backend/src/routes/providerPlanRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/providerPlanRoutes.js))**:
+     - All routes protected with `authenticate` and `isProvider`.
+     - Mounted in [backend/src/routes/index.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/index.js) at `/api/provider/plans`.
+
+---
+
+5. **Provider Tiffin Plans Frontend & Live API Integration (Completed & Verified):**
+   - **Components Created ([frontend/src/components/provider/](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/))**:
+     - **`TiffinPlans.jsx`**:
+       - 4 Top Metric Cards (Total Plans with active/inactive breakdown, Total Subscribers, Active Plans, Total Views).
+       - Status filter tabs (`All Plans`, `Active`, `Inactive`) + Search bar + Multi-dropdown filters (Meal Type, Diet, Duration).
+       - Responsive 2-column grid of plan cards with food photography, `Popular` badges, `ACTIVE`/`INACTIVE` badges, iOS-style instant status toggle, three-dots action menu (Edit, Toggle, Delete with safety check), and features checklist.
+       - Direct `View Menu →` action linking directly to the Weekly Menu manager.
+     - **`PlanFormModal.jsx`**:
+       - Slide-over right drawer / modal matching reference UI for both creating new plans and editing existing plans.
+       - Plan name (120 char limit), description (500 char limit), duration dropdown (Weekly, Fortnightly, Monthly, 60 Days), meal type selector, diet category selector, delivery schedule selector, price input with currency indicator, key features checklist with one-click suggestions and tag chips, and subscription availability checkbox.
+       - Full connection to `POST /api/provider/plans` and `PATCH /api/provider/plans/:id`.
+   - **Navigation & Routing**:
+     - Connected sidebar item `"tiffin-plans"` in `ProviderDashboard.jsx`.
+     - Direct URL route `/provider/plans` in [frontend/src/App.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/App.jsx).
+     - Overview Stats Card ("Active Tiffin Plans") and Quick Actions ("Create tiffin plan") wired to open the plans view.
+
 ---
 
 ## 11. Next Steps on the Roadmap
 
-1. **Provider Tiffin Plans & Packages Module (`/provider/plans`):**
-   - Plan creation & management (`POST /api/provider/plans`, `GET /api/provider/plans`).
-   - Linking meals/menus to specific subscription plans.
-2. **Provider Orders Management Module:**
-   - Real-time order tracking, daily delivery status updates, and dispatch lists.
-3. **Customer Discovery & Subscription Flow:**
-   - Customer-facing kitchen menu browsing and subscription checkout.
+1. **Provider Orders Management Module:**
+   - Real-time daily order dispatch lists (customer name, address, delivery status).
+2. **Customer Discovery & Subscription Flow:**
+   - Customer-facing kitchen browsing, plan selection, and subscription checkout.
+
 
 

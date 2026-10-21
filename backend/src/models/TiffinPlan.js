@@ -17,17 +17,53 @@ const tiffinPlanSchema = new mongoose.Schema(
     description: {
       type: String,
       trim: true,
+      default: "",
     },
     durationDays: {
       type: Number,
       required: [true, "Duration in days is required"],
       min: [1, "Duration must be at least 1 day"],
+      default: 30,
     },
     mealsPerDay: {
       type: Number,
-      required: [true, "Meals per day is required"],
       min: [1, "Must offer at least 1 meal per day"],
       default: 1,
+    },
+    mealType: {
+      type: String,
+      enum: {
+        values: ["BREAKFAST", "LUNCH", "DINNER", "LUNCH_DINNER", "ALL_MEALS"],
+        message: "{VALUE} is not a valid meal type",
+      },
+      default: "LUNCH",
+      required: [true, "Meal type is required"],
+    },
+    diet: {
+      type: String,
+      enum: {
+        values: ["VEG", "NON_VEG", "BOTH"],
+        message: "{VALUE} is not a valid diet type",
+      },
+      default: "VEG",
+      required: [true, "Diet classification is required"],
+    },
+    deliveryDays: {
+      type: String,
+      enum: {
+        values: ["ALL_DAYS", "WEEKDAYS_ONLY", "MON_TO_SAT"],
+        message: "{VALUE} is not a valid delivery schedule",
+      },
+      default: "ALL_DAYS",
+    },
+    features: {
+      type: [String],
+      default: [],
+    },
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: "",
     },
     price: {
       type: Number,
@@ -36,7 +72,7 @@ const tiffinPlanSchema = new mongoose.Schema(
     },
     isSubscriptionAvailable: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     status: {
       type: String,
@@ -50,8 +86,11 @@ const tiffinPlanSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
+
+// Compound index for querying active plans per provider quickly
+tiffinPlanSchema.index({ providerId: 1, status: 1 });
 
 const TiffinPlan = mongoose.model("TiffinPlan", tiffinPlanSchema);
 

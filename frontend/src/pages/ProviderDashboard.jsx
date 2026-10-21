@@ -21,6 +21,7 @@ import OrderActivity from '../components/provider/OrderActivity';
 import RecentOrders from '../components/provider/RecentOrders';
 import QuickActions from '../components/provider/QuickActions';
 import WeeklyMenu, { INITIAL_MENU_DATA } from '../components/provider/WeeklyMenu';
+import TiffinPlans from '../components/provider/TiffinPlans';
 
 export default function ProviderDashboard({ initialTab = 'overview' }) {
   const { user, providerProfile, providerStage, loading } = useAuth();
@@ -146,12 +147,11 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
     currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
 
   const handleSelectTab = (tabId) => {
-    if (tabId === 'overview' || tabId === 'weekly-menu') {
+    if (tabId === 'overview' || tabId === 'weekly-menu' || tabId === 'tiffin-plans') {
       setActiveTab(tabId);
     } else {
       setActiveTab(tabId);
       const tabNames = {
-        'tiffin-plans': 'Tiffin Plans',
         'orders': 'Orders Management',
         'subscriptions': 'Subscriptions',
         'customers': 'Customer Directory',
@@ -169,6 +169,8 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
   const handleQuickAction = (tab, title) => {
     if (tab === 'menu' || tab === 'weekly-menu') {
       setActiveTab('weekly-menu');
+    } else if (tab === 'plans' || tab === 'tiffin-plans') {
+      setActiveTab('tiffin-plans');
     } else {
       triggerNotice(`${title} shortcut will open when that module is connected in future steps.`);
     }
@@ -223,6 +225,11 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
               onToast={triggerNotice}
               isSaving={isSavingMenu}
               isLoading={menuLoading}
+            />
+          ) : activeTab === 'tiffin-plans' ? (
+            <TiffinPlans
+              onNavigateToMenu={() => setActiveTab('weekly-menu')}
+              onToast={triggerNotice}
             />
           ) : activeTab === 'overview' ? (
             <>
@@ -303,9 +310,9 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
                 {activeTab.replace('-', ' ')} Module
               </h2>
               <p className="text-xs text-slate-500 mb-6 leading-relaxed max-w-md mx-auto">
-                This section will be fully connected to backend APIs in upcoming steps. You can explore the active <strong>Overview</strong> and <strong>Weekly Menu</strong> modules right now.
+                This section will be fully connected to backend APIs in upcoming steps. You can explore the active <strong>Overview</strong>, <strong>Weekly Menu</strong>, and <strong>Tiffin Plans</strong> modules right now.
               </p>
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => setActiveTab('overview')}
@@ -321,6 +328,14 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
                 >
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Open Weekly Menu</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tiffin-plans')}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-2xl shadow-sm transition-all cursor-pointer"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Manage Tiffin Plans</span>
                 </button>
               </div>
             </div>
