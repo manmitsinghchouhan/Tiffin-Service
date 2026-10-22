@@ -6,6 +6,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProviders from './pages/admin/AdminProviders';
 import AdminUsers from './pages/admin/AdminUsers';
 import CustomerAuth from './pages/CustomerAuth';
+import CustomerDashboard from './pages/CustomerDashboard';
 import PartnerLandingPage from './pages/PartnerLandingPage';
 import ProviderAuth from './pages/ProviderAuth';
 import ProviderOnboarding from './pages/ProviderOnboarding';
@@ -35,14 +36,17 @@ export default function App() {
           {/* Provider Application Status ("Pending Approval" / "Milestone" / "Rejected") */}
           <Route path="/provider/status" element={<ProviderStatus />} />
 
-          {/* Provider Active Kitchen Dashboard, Weekly Menu & Tiffin Plans */}
+          {/* Provider Active Kitchen Dashboard, Weekly Menu, Tiffin Plans & Subscriptions */}
           <Route path="/provider/dashboard" element={<ProviderDashboard />} />
           <Route path="/provider/menu" element={<ProviderDashboard initialTab="weekly-menu" />} />
           <Route path="/provider/plans" element={<ProviderDashboard initialTab="tiffin-plans" />} />
+          <Route path="/provider/subscriptions" element={<ProviderDashboard initialTab="subscriptions" />} />
 
-          {/* Customer Authentication */}
+          {/* Customer Authentication & Dashboard */}
           <Route path="/login" element={<CustomerAuth initialMode="login" />} />
           <Route path="/register" element={<CustomerAuth initialMode="register" />} />
+          <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+          <Route path="/customer/subscriptions" element={<Navigate to="/customer/dashboard" replace />} />
 
           {/* Admin Authentication & Management Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />

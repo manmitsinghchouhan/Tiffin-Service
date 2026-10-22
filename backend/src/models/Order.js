@@ -5,7 +5,11 @@ const planSnapshotSchema = new mongoose.Schema(
     name: { type: String, required: true },
     price: { type: Number, required: true },
     durationDays: { type: Number, required: true },
-    mealsPerDay: { type: Number, required: true },
+    mealsPerDay: { type: Number, required: true, default: 1 },
+    mealType: { type: String, default: "LUNCH" },
+    diet: { type: String, default: "VEG" },
+    deliveryDays: { type: String, default: "ALL_DAYS" },
+    features: { type: [String], default: [] },
   },
   { _id: false },
 );
@@ -14,9 +18,10 @@ const deliveryAddressSchema = new mongoose.Schema(
   {
     street: { type: String, required: true, trim: true },
     city: { type: String, required: true, trim: true },
-    postalCode: { type: String, trim: true },
-    landmark: { type: String, trim: true },
-    contactPhone: { type: String, trim: true },
+    state: { type: String, trim: true, default: "" },
+    postalCode: { type: String, trim: true, default: "" },
+    landmark: { type: String, trim: true, default: "" },
+    contactPhone: { type: String, trim: true, default: "" },
   },
   { _id: false },
 );
@@ -39,6 +44,11 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "TiffinPlan",
       required: [true, "Plan ID is required"],
+      index: true,
+    },
+    subscriptionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subscription",
       index: true,
     },
     orderDate: {

@@ -57,7 +57,7 @@ export default function Hero() {
             <div className="flex flex-wrap items-center gap-4 mb-12 w-full sm:w-auto">
               {/* Primary Explore CTA */}
               <a
-                href="#explore"
+                href="#subscription"
                 className="inline-flex items-center justify-center gap-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-7 py-3.5 rounded-full shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/35 transition-all hover:-translate-y-0.5 active:translate-y-0 text-sm sm:text-base"
               >
                 <Search className="w-4 h-4" />

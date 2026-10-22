@@ -1,6 +1,6 @@
 # Current State — Tiffin Service Management System
 
-**Last Updated:** October 19, 2026  
+**Last Updated:** October 21, 2026  
 **Stack:** MERN (Node.js, Express 5, MongoDB / Mongoose 9, React 19 + Vite 8)  
 **Architecture:** Modular ES Modules (`"type": "module"`), HTTP-only Cookie-Based JWT Sessions, React Context for Auth State, Axios with Credentials
 
@@ -476,12 +476,131 @@ The Weekly Menu interface has been implemented following the attached reference 
 
 ---
 
+6. **Public Kitchen Discovery & Customer Showcase (Completed & Verified):**
+   - **Backend Endpoints ([backend/src/routes/publicKitchenRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/publicKitchenRoutes.js))**:
+     - `GET /api/kitchens`: Fetches verified kitchens with live search (`search`), city filtering (`city`), diet filtering (`foodType: VEG/NON_VEG/BOTH`), and pagination. Automatically computes aggregated `plansCount`, `startingPrice`, and `availableMeals` for each kitchen.
+     - `GET /api/kitchens/cities`: Returns clean, distinct list of cities where active verified kitchens operate.
+     - `GET /api/kitchens/:id`: Returns complete public profile for a single verified kitchen, including their full `kitchen` profile, active `plans`, and 7-day `weeklyMenu`.
+   - **Frontend Components Created**:
+     - **`ExploreKitchens.jsx` ([frontend/src/components/ExploreKitchens.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/ExploreKitchens.jsx))**:
+       - Mounted on `LandingPage.jsx` with `id="subscription"` directly below `HowItWorks`.
+       - Section Header with "EXPLORE TIFFIN SERVICES" pill and "Discover Trusted Tiffin Providers" typography.
+       - Interactive Filter Bar: Debounced search, dynamic city selector dropdown, and 4 diet filter pills (`All Kitchens`, `🌱 Pure Veg`, `🍗 Non-Veg`, `🥗 Veg & Non-Veg`).
+       - Responsive 4-column Provider Cards Grid with food photos, `✓ Verified` badge, favorite heart toggle, rating, location, description, diet and meal badges, starting price, and `View Menu & Plans →` button.
+       - "View More Providers →" pagination button, skeletons, and empty state.
+     - **`KitchenDetailModal.jsx` ([frontend/src/components/KitchenDetailModal.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/KitchenDetailModal.jsx))**:
+       - Left Pane: Kitchen cover photo, verified badge, logo avatar, business name, star rating with reviews, location, bio, schedule and meal badges, and detailed service areas list.
+       - Right Pane Tabs:
+         - **Tab 1: Weekly Menu**: 7-day selector pills (Mon–Sun) with Breakfast, Lunch, and Dinner meal cards displaying delivery timings and dish list with thumbnails.
+         - **Tab 2: Tiffin Plans**: Category filter pills (All, Breakfast, Lunch, Dinner, Lunch & Dinner, All Meals), sort dropdown (Recommended, Price, Duration), and 3-column plan card grid with `Popular` and `Best Value` badges, duration, meal type, diet tags, features checklist, price, and `Subscribe Now →` button.
+
+---
+
+7. **Customer Subscriptions API (Completed & Verified):**
+   - **Schema Enhancements**:
+     - **[backend/src/models/Subscription.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/models/Subscription.js)**:
+       - Status enum enhanced: `["ACTIVE", "PAUSED", "EXPIRED", "CANCELLED"]` (default `"ACTIVE"`).
+       - Added `pausedAt: { type: Date }` to accurately record pause timestamp for resuming.
+       - Added `notes: { type: String, trim: true }` for dietary/delivery preferences.
+       - Enhanced `planSnapshotSchema` with `mealType`, `diet`, `deliveryDays`, and `features` ensuring immutable historical records.
+       - Enhanced `deliveryAddressSchema` with `state`, `postalCode`, `landmark`, `contactPhone`.
+     - **[backend/src/models/Order.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/models/Order.js)**:
+       - Added optional `subscriptionId: { type: ObjectId, ref: "Subscription" }` linking each subscription creation to an order in the provider order ledger.
+   - **Backend Controller ([backend/src/controllers/customerSubscriptionController.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/controllers/customerSubscriptionController.js))**:
+     - `createSubscription` (`POST /api/customer/subscriptions`): Validates active plan, verified kitchen, and delivery address. Computes `endDate` from `startDate` + `durationDays`. Saves immutable snapshot, stores `autoRenewal` preference, creates `Subscription` and links an initial `Order` record. Returns populated kitchen profile.
+     - `getCustomerSubscriptions` (`GET /api/customer/subscriptions`): Lists all subscriptions for the authenticated customer with provider and plan details. Calculates dynamic `remainingDays` and `isExpiringSoon` flag.
+     - `getSubscriptionById` (`GET /api/customer/subscriptions/:id`): Fetches single subscription with customer ownership verification.
+     - `pauseSubscription` (`PATCH /api/customer/subscriptions/:id/pause`): Sets status to `PAUSED` and records `pausedAt`.
+     - `resumeSubscription` (`PATCH /api/customer/subscriptions/:id/resume`): Calculates paused duration (`Date.now() - pausedAt`), shifts `endDate` forward accordingly, clears `pausedAt`, and restores status to `ACTIVE`.
+     - `cancelSubscription` (`PATCH /api/customer/subscriptions/:id/cancel`): Cancels subscription and disables auto-renewal.
+     - `updateDeliveryAddress` (`PATCH /api/customer/subscriptions/:id/address`): Allows customers to update delivery location and notes for upcoming meals.
+     - `toggleAutoRenewal` (`PATCH /api/customer/subscriptions/:id/auto-renew`): Toggles recurring auto-renewal flag.
+   - **Routes & Mounting ([backend/src/routes/customerSubscriptionRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/customerSubscriptionRoutes.js))**:
+     - Strictly protected with `authenticate` and `isCustomer` middleware.
+     - Mounted in [backend/src/routes/index.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/index.js) at `/api/customer/subscriptions` and `/api/subscriptions`.
+
+---
+
+8. **Customer Subscriptions Checkout Flow & Customer Portal Frontend (Completed & Verified):**
+   - **Components & Pages Built ([frontend/src/](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/))**:
+     - **`CustomerLoginModal.jsx` ([frontend/src/components/customer/CustomerLoginModal.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/customer/CustomerLoginModal.jsx))**:
+       - Implements Step 2 in reference UI.
+       - Opens seamlessly when a guest clicks `Subscribe Now ➔` without losing their selected plan.
+       - Customer Login & Account Registration tabs, automatic post-registration login, and instant transition to Checkout.
+     - **`SubscribeModal.jsx` ([frontend/src/components/customer/SubscribeModal.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/customer/SubscribeModal.jsx))**:
+       - Implements Step 3 & Step 4 in reference UI.
+       - Left Pane: Kitchen branding, rating, location, plan title, price, tags, and features checklist.
+       - Right Pane: Start date picker (tomorrow onwards), complete delivery address form, auto-renewal checkbox, delivery notes, and enterprise payment simulator (`⚡ Test Online Payment` & `💵 Pay on 1st Delivery`).
+       - Success View: Animated celebration burst checkmark, receipt breakdown, and direct navigation to Customer Dashboard.
+     - **`CustomerDashboard.jsx` ([frontend/src/pages/CustomerDashboard.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/pages/CustomerDashboard.jsx))**:
+       - Implements Step 5 & Step 6 in reference UI.
+       - Dedicated Customer Portal mounted at `/customer/dashboard` and `/customer/subscriptions`.
+       - Active Subscription Card: "Day X of Y" with animated progress bar, start/end dates, "Today's Meal" status (`Preparing`), delivery address card, and auto-renewal indicator.
+       - Interactive Controls: Pause/Resume subscription (with paused period end-date extension), address editor modal, auto-renew toggle, and safety cancel confirmation modal.
+       - Subscription History tab for past and cancelled subscriptions.
+     - **`Navbar.jsx`**:
+       - Context-aware navigation: Adds `My Subscriptions` direct link and blue `My Subscriptions ➔` header button for logged-in customers.
+
+---
+
+9. **Provider Subscriptions Management API (Completed & Verified):**
+   - **Backend Controller ([backend/src/controllers/providerSubscriptionController.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/controllers/providerSubscriptionController.js))**:
+     - `getProviderSubscriptionStats` (`GET /api/provider/subscriptions/stats`): Computes live operational KPIs for the kitchen: `totalSubscribers`, `activeCount`, `pausedCount`, `expiringSoonCount` (within 3 days), and `activeRevenue` (sum of active subscriptions amount).
+     - `getProviderSubscriptions` (`GET /api/provider/subscriptions`): Lists all subscriptions belonging strictly to the authenticated provider. Supports keyword search across customer name, phone, email, delivery street, and landmark. Supports status filters (`ALL`, `ACTIVE`, `PAUSED`, `EXPIRING`, `CANCELLED`, `EXPIRED`) and plan filter (`planId`). Enriches each subscription with dynamic `remainingDays`, `daysDelivered`, and `isExpiringSoon`. Supports pagination (`page`, `limit`).
+     - `getProviderSubscriptionById` (`GET /api/provider/subscriptions/:id`): Fetches complete subscription details with customer and plan populated.
+   - **Routes & Mounting ([backend/src/routes/providerSubscriptionRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/providerSubscriptionRoutes.js))**:
+     - Protected with `authenticate` and `isProvider` middleware.
+     - Mounted in [backend/src/routes/index.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/index.js) at `/api/provider/subscriptions`.
+
+10. **Provider Subscriptions Management Frontend & Drawer Inspection (Completed & Verified):**
+   - **Matching Reference Design ([Image 2 / media_1792649830917.png](file:///C:/Users/manmi/.gemini/antigravity-ide/brain/f3f755b1-b4be-4c46-828f-2e76c4503694/.user_uploaded/media_1792649830917.png))**:
+     - Built and integrated dedicated subscriptions control hub for kitchen owners.
+   - **Components Built ([frontend/src/components/provider/](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/))**:
+     - **`Subscriptions.jsx` ([frontend/src/components/provider/Subscriptions.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/Subscriptions.jsx))**:
+       - **Top 4 KPI Metric Cards**:
+         - *Active Subscribers*: Dynamic active count with `↑ Active daily meals` indicator.
+         - *Deliveries on Hold*: Paused subscriber count with `Customers paused` subtext.
+         - *Expiring in ≤ 3 Days*: Upcoming renewals warning with `Needs attention` subtext.
+         - *Active Subscription Revenue*: Sum of active subscription value in ₹.
+       - **Interactive Filter & Search Controls**:
+         - Status filter pills: `All`, `Active`, `Paused`, `Expiring Soon`, `Cancelled` with real-time count badges.
+         - Dropdown filters: `All Plans` (dynamically populated from provider's meal packages) and `Sort by` (Recent First, Expiring Soonest, Highest Amount, Longest Duration).
+         - Full-text search input: Instant filtering across customer name, phone, street address, and plan title.
+         - CSV Export: Instant client-side CSV download of the active subscriber table.
+       - **Subscriptions Table**:
+         - Columns: `CUSTOMER`, `PLAN`, `DURATION`, `BILLING & RENEWAL`, `STATUS`, `ACTION`.
+         - Customer column: Initials avatar with dynamic pastel color palette, name, phone, and delivery area.
+         - Plan column: Package title, meal type pill (e.g. `🍴 Lunch`), and diet badge (`🌱 Veg` or `🍗 Non-Veg`).
+         - Duration column: Start to end date range, dynamic badges (`18 days left`, `4 days left`, `Expires tomorrow`, `Paused`, `Completed`, `Cancelled`).
+         - Billing column: Price paid with `🔄 Auto-renews` or `Fixed Pack` badge.
+         - Status column: `ACTIVE`, `PAUSED`, `EXPIRED`, `CANCELLED` pills.
+         - Actions: `View Details` button + 3-dots quick action menu (Pause/Resume, Edit Address, Cancel).
+     - **`SubscriptionDetailDrawer.jsx` ([frontend/src/components/provider/SubscriptionDetailDrawer.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/SubscriptionDetailDrawer.jsx))**:
+       - Slide-over detail drawer matching right panel of reference design.
+       - Customer summary header with avatar, name, status, 1-click phone and email copy buttons.
+       - 4-tab system: `Overview`, `Plan Details`, `Address`, `History`.
+       - *Overview Tab*: Plan information card with thumbnail and features checklist, timeline progress bar (`18 days left - Day X of Y` with percentage fill), billing & renewal terms, today's meal status (`Preparing for Dispatch` with time window), delivery address summary, and customer dietary notes/instructions.
+       - *Actions Footer*: One-click `Pause Deliveries` / `Resume Deliveries`, `Update Address` inline modal, and `Cancel Subscription` safety dialog.
+     - **`DashboardStats.jsx`**:
+       - Connected overview cards ("Active Subscriptions" and "Active Tiffin Plans") to live database counts.
+     - **`App.jsx` & `ProviderDashboard.jsx`**:
+       - Direct route `/provider/subscriptions` added and sidebar navigation wired.
+       - Quick action "Manage subscribers" added to overview.
+
+---
+
 ## 11. Next Steps on the Roadmap
 
-1. **Provider Orders Management Module:**
-   - Real-time daily order dispatch lists (customer name, address, delivery status).
-2. **Customer Discovery & Subscription Flow:**
-   - Customer-facing kitchen browsing, plan selection, and subscription checkout.
+1. **Provider Daily Orders & Delivery Run-Sheets:**
+   - Real subscriber dispatch lists and daily delivery sheets for morning and evening meal routes.
+2. **Payment Gateway Integration (Razorpay / Stripe):**
+   - Connect live payment processing to replace the test simulation gateway.
+3. **Feedback & Review Ratings Integration:**
+   - Connect MongoDB `Feedback` aggregation to replace static star ratings.
+
+
+
+
 
 
 

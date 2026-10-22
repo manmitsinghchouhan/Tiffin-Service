@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Eye, EyeOff, AlertCircle, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ArrowLeft, Loader2, CheckCircle2, Utensils } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function CustomerAuth({ initialMode = 'login' }) {
@@ -39,7 +39,10 @@ export default function CustomerAuth({ initialMode = 'login' }) {
     setMode(newMode);
     setError('');
     setSuccessMessage('');
-    window.history.pushState(null, '', newMode === 'register' ? '/register' : '/login');
+    navigate(newMode === 'register' ? '/register' : '/login', {
+      state: location.state,
+      replace: true,
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -55,7 +58,17 @@ export default function CustomerAuth({ initialMode = 'login' }) {
 
         setSuccessMessage('Logged in successfully! Redirecting...');
         setTimeout(() => {
-          navigate('/');
+          if (
+            location.state?.from === 'subscribe' &&
+            location.state?.kitchenId &&
+            location.state?.planId
+          ) {
+            navigate(
+              `/?subscribeKitchenId=${location.state.kitchenId}&subscribePlanId=${location.state.planId}`
+            );
+          } else {
+            navigate('/');
+          }
         }, 800);
       } else {
         // Customer Registration via AuthContext
@@ -125,6 +138,24 @@ export default function CustomerAuth({ initialMode = 'login' }) {
               Customer Account
             </span>
           </div>
+
+          {/* Subscription Context Banner if redirected from subscribing */}
+          {location.state?.from === 'subscribe' && (
+            <div className="mb-6 p-4 rounded-2xl bg-blue-50/90 border border-blue-200 text-blue-900 text-xs sm:text-sm flex items-start gap-3 shadow-2xs">
+              <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                <Utensils className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900">
+                  Subscribe to {location.state.planName || 'Selected Meal Plan'}
+                </p>
+                <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">
+                  Please log in or create an account. You will automatically return to complete your subscription with{' '}
+                  <span className="font-bold">{location.state.kitchenName || 'the provider'}</span>.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Heading */}
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">

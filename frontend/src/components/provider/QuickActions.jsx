@@ -26,12 +26,12 @@ export default function QuickActions({ onAction }) {
       tab: 'plans',
     },
     {
-      id: 'orders',
-      title: 'Review orders',
-      subtitle: 'Check and manage incoming orders',
+      id: 'subscriptions',
+      title: 'Manage subscribers',
+      subtitle: 'View active subscribers & daily meals',
       icon: ClipboardCheck,
-      iconBg: 'bg-blue-50 text-blue-600 border border-blue-100/80',
-      tab: 'orders',
+      iconBg: 'bg-purple-50 text-purple-600 border border-purple-100/80',
+      tab: 'subscriptions',
     },
   ];
 

@@ -95,7 +95,10 @@ const sanitizeSchedule = (inputMenu) => {
             id: dish.id || `${day.toLowerCase()}-${meal}-${idx}-${Date.now()}`,
             name: dish.name.trim(),
             diet: dish.diet === "Non-Veg" ? "Non-Veg" : "Veg",
-            image: typeof dish.image === "string" ? dish.image.trim() : "",
+            image:
+              (typeof dish.image === "string" && dish.image.trim()) ||
+              (typeof dish.imageUrl === "string" && dish.imageUrl.trim()) ||
+              "",
           }));
       }
     }
@@ -154,7 +157,7 @@ export const saveWeeklyMenu = asyncHandler(async (req, res) => {
   const updatedDoc = await WeeklyMenu.findOneAndUpdate(
     { providerId: provider._id },
     { $set: { providerId: provider._id, ...sanitized } },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: "after", runValidators: true }
   ).lean();
 
   const schedule = {};
@@ -371,7 +374,7 @@ export const resetWeeklyMenu = asyncHandler(async (req, res) => {
   const updatedDoc = await WeeklyMenu.findOneAndUpdate(
     { providerId: provider._id },
     { $set: { providerId: provider._id, ...cleanSchedule } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: "after" }
   ).lean();
 
   const schedule = {};

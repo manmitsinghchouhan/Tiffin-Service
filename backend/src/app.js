@@ -15,9 +15,9 @@ app.use(
   }),
 );
 
-// Body & Cookie parsers
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body & Cookie parsers (increased payload limit for rich weekly menus with images)
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 
 // Root route

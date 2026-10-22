@@ -22,6 +22,7 @@ import RecentOrders from '../components/provider/RecentOrders';
 import QuickActions from '../components/provider/QuickActions';
 import WeeklyMenu, { INITIAL_MENU_DATA } from '../components/provider/WeeklyMenu';
 import TiffinPlans from '../components/provider/TiffinPlans';
+import Subscriptions from '../components/provider/Subscriptions';
 
 export default function ProviderDashboard({ initialTab = 'overview' }) {
   const { user, providerProfile, providerStage, loading } = useAuth();
@@ -147,13 +148,17 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
     currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
 
   const handleSelectTab = (tabId) => {
-    if (tabId === 'overview' || tabId === 'weekly-menu' || tabId === 'tiffin-plans') {
+    if (
+      tabId === 'overview' ||
+      tabId === 'weekly-menu' ||
+      tabId === 'tiffin-plans' ||
+      tabId === 'subscriptions'
+    ) {
       setActiveTab(tabId);
     } else {
       setActiveTab(tabId);
       const tabNames = {
         'orders': 'Orders Management',
-        'subscriptions': 'Subscriptions',
         'customers': 'Customer Directory',
         'payments': 'Payments & Earnings',
         'feedback': 'Feedback & Complaints',
@@ -171,6 +176,8 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
       setActiveTab('weekly-menu');
     } else if (tab === 'plans' || tab === 'tiffin-plans') {
       setActiveTab('tiffin-plans');
+    } else if (tab === 'subscriptions') {
+      setActiveTab('subscriptions');
     } else {
       triggerNotice(`${title} shortcut will open when that module is connected in future steps.`);
     }
@@ -229,6 +236,11 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
           ) : activeTab === 'tiffin-plans' ? (
             <TiffinPlans
               onNavigateToMenu={() => setActiveTab('weekly-menu')}
+              onToast={triggerNotice}
+            />
+          ) : activeTab === 'subscriptions' ? (
+            <Subscriptions
+              onNavigateToPlans={() => setActiveTab('tiffin-plans')}
               onToast={triggerNotice}
             />
           ) : activeTab === 'overview' ? (

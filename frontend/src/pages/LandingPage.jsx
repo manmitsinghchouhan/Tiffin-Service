@@ -2,6 +2,7 @@ import React from 'react';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import HowItWorks from '../components/HowItWorks';
+import ExploreKitchens from '../components/ExploreKitchens';
 import Footer from '../components/Footer';
 
 export default function LandingPage() {
@@ -11,6 +12,7 @@ export default function LandingPage() {
       <main className="flex-grow">
         <Hero />
         <HowItWorks />
+        <ExploreKitchens />
       </main>
       <Footer />
     </div>

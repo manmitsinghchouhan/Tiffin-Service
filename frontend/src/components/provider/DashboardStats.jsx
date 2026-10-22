@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShoppingBag,
   Users,
@@ -7,8 +7,42 @@ import {
   ChevronRight,
   AlertCircle,
 } from 'lucide-react';
+import api from '../../services/api';
 
 export default function DashboardStats({ onNavigate, onCardClick }) {
+  const [liveMetrics, setLiveMetrics] = useState({
+    activeSubscribers: null,
+    activePlans: null,
+    activeRevenue: null,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStats = async () => {
+      try {
+        const [subsRes, plansRes] = await Promise.all([
+          api.get('/provider/subscriptions/stats'),
+          api.get('/provider/plans?status=ACTIVE'),
+        ]);
+
+        if (isMounted) {
+          setLiveMetrics({
+            activeSubscribers: subsRes.data?.data?.activeCount ?? 0,
+            activeRevenue: subsRes.data?.data?.activeRevenue ?? 0,
+            activePlans: plansRes.data?.count ?? plansRes.data?.data?.length ?? 0,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not fetch live dashboard metrics:', err);
+      }
+    };
+
+    fetchStats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const stats = [
     {
       id: 'today-orders',
@@ -27,17 +61,26 @@ export default function DashboardStats({ onNavigate, onCardClick }) {
       id: 'subscriptions',
       tab: 'subscriptions',
       title: 'Active Subscriptions',
-      value: '42',
+      value:
+        liveMetrics.activeSubscribers !== null
+          ? String(liveMetrics.activeSubscribers)
+          : '—',
       icon: Users,
       iconBg: 'bg-emerald-50 text-emerald-600',
-      subtext: 'Across 3 active plans',
+      subtext:
+        liveMetrics.activePlans !== null
+          ? `Across ${liveMetrics.activePlans} active plans`
+          : 'Manage subscribers',
       linkTitle: 'View subscriptions',
     },
     {
       id: 'plans',
       tab: 'tiffin-plans',
       title: 'Active Tiffin Plans',
-      value: '3',
+      value:
+        liveMetrics.activePlans !== null
+          ? String(liveMetrics.activePlans)
+          : '—',
       icon: Package,
       iconBg: 'bg-purple-50 text-purple-600',
       subtext: 'Manage your packages',
@@ -47,7 +90,10 @@ export default function DashboardStats({ onNavigate, onCardClick }) {
       id: 'revenue',
       tab: 'payments',
       title: "This Month's Revenue",
-      value: '₹28,450',
+      value:
+        liveMetrics.activeRevenue !== null
+          ? `₹${liveMetrics.activeRevenue.toLocaleString('en-IN')}`
+          : '—',
       icon: BarChart3,
       iconBg: 'bg-teal-50 text-teal-600',
       subtext: 'Payments overview',
