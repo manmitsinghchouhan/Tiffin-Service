@@ -7,6 +7,9 @@ import {
   providerRegister,
   acknowledgeApproval,
   reapplyOnboarding,
+  getProviderPublicPreview,
+  updateBusinessProfile,
+  toggleOperatingStatus,
 } from "../controllers/providerAuthController.js";
 import { authenticate, isProvider } from "../middleware/authMiddleware.js";
 
@@ -19,8 +22,13 @@ router.post("/logout", providerLogout);
 
 // Protected Provider Routes (Requires PROVIDER role session)
 router.get("/me", authenticate, isProvider, getProviderProfile);
+router.get("/preview", authenticate, isProvider, getProviderPublicPreview);
 router.post("/onboarding", authenticate, isProvider, completeOnboarding);
-router.post("/profile", authenticate, isProvider, completeOnboarding);
+
+// Business Profile Management (Identity, Visual Branding, Coverage & Operating Status)
+router.get("/profile", authenticate, isProvider, getProviderProfile);
+router.put("/profile", authenticate, isProvider, updateBusinessProfile);
+router.patch("/profile/status", authenticate, isProvider, toggleOperatingStatus);
 
 // Milestone Transition & Re-application
 router.patch(

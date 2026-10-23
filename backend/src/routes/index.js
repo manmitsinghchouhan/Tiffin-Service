@@ -6,8 +6,12 @@ import providerAuthRoutes from "./providerAuthRoutes.js";
 import providerMenuRoutes from "./providerMenuRoutes.js";
 import providerPlanRoutes from "./providerPlanRoutes.js";
 import providerSubscriptionRoutes from "./providerSubscriptionRoutes.js";
+import providerCustomerRoutes from "./providerCustomerRoutes.js";
+import providerOrderRoutes from "./providerOrderRoutes.js";
+import providerSettingsRoutes from "./providerSettingsRoutes.js";
 import publicKitchenRoutes from "./publicKitchenRoutes.js";
 import customerSubscriptionRoutes from "./customerSubscriptionRoutes.js";
+import customerAddressRoutes from "./customerAddressRoutes.js";
 
 const router = Router();
 
@@ -20,6 +24,9 @@ router.use("/admin", adminManagementRoutes);
 router.use("/customer/auth", customerAuthRoutes);
 router.use("/customer", customerAuthRoutes);
 router.use("/auth", customerAuthRoutes);
+
+// Customer Address Book Routes
+router.use("/customer/addresses", customerAddressRoutes);
 
 // Customer Subscriptions & Meal Tracking
 router.use("/customer/subscriptions", customerSubscriptionRoutes);
@@ -37,6 +44,15 @@ router.use("/provider/plans", providerPlanRoutes);
 
 // Provider Subscriptions Management
 router.use("/provider/subscriptions", providerSubscriptionRoutes);
+
+// Provider Customer Directory (CRM)
+router.use("/provider/customers", providerCustomerRoutes);
+
+// Provider Orders & Daily Dispatch Management
+router.use("/provider/orders", providerOrderRoutes);
+
+// Provider Settings & Security Preferences
+router.use("/provider/settings", providerSettingsRoutes);
 
 // Public Customer Kitchen Discovery & Menus
 router.use("/kitchens", publicKitchenRoutes);

@@ -77,9 +77,9 @@ export default function ExploreKitchens() {
     }
   }, [autoKitchenId, autoPlanId]);
 
-  const handleSelectPlan = (plan, kitchen) => {
+  const handleSelectPlan = (plan, kitchen, existingPendingSub = null) => {
     if (user && isCustomer) {
-      setSubscribingPlan({ plan, kitchen });
+      setSubscribingPlan({ plan, kitchen, existingPendingSub });
     } else {
       // Redirect to the existing Login page with state
       navigate('/login', {
@@ -399,10 +399,17 @@ export default function ExploreKitchens() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
 
-                      {/* Top-Left Verified Pill */}
-                      <div className="absolute top-3 left-3 bg-emerald-500/95 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Verified</span>
+                      {/* Top-Left Verified & Status Pill */}
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                        <div className="bg-emerald-500/95 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Verified</span>
+                        </div>
+                        {(kitchen.isAcceptingOrders === false || kitchen.operatingStatus === 'BUSY') && (
+                          <div className="bg-amber-600/95 backdrop-blur-xs text-white text-[10px] font-extrabold px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                            <span>🔴 At Capacity</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Top-Right Favorite Button */}
@@ -523,9 +530,17 @@ export default function ExploreKitchens() {
                     <button
                       type="button"
                       onClick={() => setSelectedKitchenId(kitchen._id)}
-                      className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all hover:scale-[1.02] active:scale-100 cursor-pointer"
+                      className={`inline-flex items-center gap-1 text-xs font-semibold px-3.5 py-2.5 rounded-xl shadow-md transition-all hover:scale-[1.02] active:scale-100 cursor-pointer ${
+                        kitchen.isAcceptingOrders === false || kitchen.operatingStatus === 'BUSY'
+                          ? 'bg-slate-800 hover:bg-slate-900 text-white shadow-slate-800/20'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30'
+                      }`}
                     >
-                      <span>View Menu & Plans</span>
+                      <span>
+                        {kitchen.isAcceptingOrders === false || kitchen.operatingStatus === 'BUSY'
+                          ? 'View Menu (Paused)'
+                          : 'View Menu & Plans'}
+                      </span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -577,6 +592,7 @@ export default function ExploreKitchens() {
           plan={subscribingPlan.plan}
           kitchen={subscribingPlan.kitchen}
           onClose={() => setSubscribingPlan(null)}
+          existingSubscription={subscribingPlan.existingPendingSub}
         />
       )}
 

@@ -8,6 +8,7 @@ import {
   MapPin,
   FileText,
   AlertCircle,
+  AlertTriangle,
   Pause,
   Play,
   Trash2,
@@ -18,6 +19,7 @@ import {
   RotateCw,
   Sparkles,
 } from "lucide-react";
+import CancelSubscriptionModal from "./CancelSubscriptionModal";
 
 export default function SubscriptionDetailDrawer({
   subscription,
@@ -295,6 +297,25 @@ export default function SubscriptionDetailDrawer({
           {/* TAB 1: OVERVIEW */}
           {activeTab === "overview" && (
             <div className="space-y-4">
+              {/* Cancellation Alert Banner if Cancelled */}
+              {subscription.status === "CANCELLED" && (
+                <div className="bg-red-50 rounded-2xl p-4 border border-red-200/80 text-xs text-red-900 space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-red-700">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Subscription Cancelled</span>
+                  </div>
+                  <p className="text-[11px] text-red-800">
+                    <strong>Reason:</strong>{" "}
+                    {subscription.cancellationReason || "Kitchen reached maximum cooking capacity"}
+                  </p>
+                  {subscription.cancelledAt && (
+                    <p className="text-[10px] text-red-600">
+                      Cancelled on {formatDate(subscription.cancelledAt)}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Plan Information Card */}
               <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
                 <div className="flex items-center gap-2 text-xs font-bold text-blue-700 uppercase tracking-wider mb-3">
@@ -778,43 +799,19 @@ export default function SubscriptionDetailDrawer({
         </div>
       )}
 
-      {/* Cancel Confirmation Modal */}
-      {cancelConfirmOpen && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center animate-in zoom-in-95">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">Cancel Subscription?</h3>
-            <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-              Are you sure you want to cancel the subscription for{" "}
-              <strong className="text-slate-800">{customer.name}</strong>? Daily deliveries will stop immediately.
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCancelConfirmOpen(false)}
-                className="flex-1 py-2.5 rounded-xl text-slate-600 font-semibold hover:bg-slate-100 text-xs cursor-pointer"
-              >
-                Keep Active
-              </button>
-              <button
-                type="button"
-                disabled={actionLoading}
-                onClick={async () => {
-                  if (onCancel) {
-                    await onCancel(subscription._id);
-                    setCancelConfirmOpen(false);
-                  }
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md shadow-red-500/20 disabled:opacity-50 cursor-pointer"
-              >
-                {actionLoading ? "Cancelling..." : "Yes, Cancel"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Cancellation Reason Modal */}
+      <CancelSubscriptionModal
+        isOpen={cancelConfirmOpen}
+        subscription={subscription}
+        onClose={() => setCancelConfirmOpen(false)}
+        onConfirm={async (reason) => {
+          if (onCancel) {
+            await onCancel(subscription._id, reason);
+            setCancelConfirmOpen(false);
+          }
+        }}
+        loading={actionLoading}
+      />
     </>
   );
 }

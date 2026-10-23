@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import SubscriptionDetailDrawer from "./SubscriptionDetailDrawer";
+import CancelSubscriptionModal from "./CancelSubscriptionModal";
 
 export default function Subscriptions({ onNavigateToPlans, onToast }) {
   const [stats, setStats] = useState({
@@ -47,6 +48,7 @@ export default function Subscriptions({ onNavigateToPlans, onToast }) {
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [actionMenuOpenId, setActionMenuOpenId] = useState(null);
+  const [cancellingSub, setCancellingSub] = useState(null);
 
   // Fetch KPI Stats, Subscriptions and Provider Plans
   const fetchSubscriptionsData = async () => {
@@ -193,21 +195,31 @@ export default function Subscriptions({ onNavigateToPlans, onToast }) {
     }
   };
 
-  // Handle Cancel
-  const handleCancel = async (id) => {
+  // Handle Cancel with Reason
+  const handleCancel = async (id, reason) => {
     try {
       setActionLoading(true);
-      const res = await api.patch(`/provider/subscriptions/${id}/cancel`);
+      const res = await api.patch(`/provider/subscriptions/${id}/cancel`, {
+        reason: reason || "Kitchen reached maximum cooking capacity",
+      });
       if (res.data?.success) {
-        if (onToast) onToast("Subscription cancelled.");
+        if (onToast) onToast("Subscription cancelled successfully.");
         await fetchSubscriptionsData();
         if (selectedSubscription && selectedSubscription._id === id) {
-          setSelectedSubscription((prev) => ({ ...prev, status: "CANCELLED", autoRenewal: false }));
+          setSelectedSubscription((prev) => ({
+            ...prev,
+            status: "CANCELLED",
+            autoRenewal: false,
+            cancellationReason: reason || "Kitchen reached maximum cooking capacity",
+            cancelledBy: "PROVIDER",
+          }));
         }
+        setCancellingSub(null);
       }
     } catch (err) {
       console.error("Failed to cancel subscription:", err);
       if (onToast) onToast(err.response?.data?.message || "Failed to cancel subscription.");
+      throw err;
     } finally {
       setActionLoading(false);
       setActionMenuOpenId(null);
@@ -789,8 +801,11 @@ export default function Subscriptions({ onNavigateToPlans, onToast }) {
                               {["ACTIVE", "PAUSED"].includes(sub.status) && (
                                 <button
                                   type="button"
-                                  onClick={() => handleCancel(sub._id)}
-                                  className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-slate-100 mt-1 pt-1.5"
+                                  onClick={() => {
+                                    setCancellingSub(sub);
+                                    setActionMenuOpenId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-slate-100 mt-1 pt-1.5 cursor-pointer"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                   <span>Cancel Subscription</span>
@@ -822,6 +837,19 @@ export default function Subscriptions({ onNavigateToPlans, onToast }) {
         onCancel={handleCancel}
         onUpdateAddress={handleUpdateAddress}
         actionLoading={actionLoading}
+      />
+
+      {/* 6. Cancel Reason Modal (Triggered from 3-dots Menu) */}
+      <CancelSubscriptionModal
+        isOpen={Boolean(cancellingSub)}
+        subscription={cancellingSub}
+        onClose={() => setCancellingSub(null)}
+        onConfirm={async (reason) => {
+          if (cancellingSub) {
+            await handleCancel(cancellingSub._id, reason);
+          }
+        }}
+        loading={actionLoading}
       />
     </div>
   );

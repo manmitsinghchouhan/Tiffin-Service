@@ -99,6 +99,22 @@ When the customer clicks `Subscribe Now ➔` in [KitchenDetailModal.jsx](file://
    - Creates a document in `subscriptions` collection.
    - Generates the initial day-1 order in `orders` collection.
 
+### 3.3 Automatic Pro-rated Refunds & Payment Gateway Financial Reconciliation
+* **Identified Need:** When a subscription is cancelled mid-cycle (by either the kitchen or customer), unfulfilled meals must be mathematically prorated and refunded.
+* **Future Upgrade (Payment Gateway Integration - Razorpay / Stripe):**
+  - **Prorated Calculation Formula:**
+    ```javascript
+    const totalDays = subscription.planSnapshot.durationDays || 30;
+    const daysDelivered = Math.max(0, Math.floor((Date.now() - new Date(subscription.startDate)) / (1000 * 60 * 60 * 24)));
+    const unservedDays = Math.max(0, totalDays - daysDelivered);
+    const refundAmount = Math.round((subscription.totalAmount / totalDays) * unservedDays);
+    ```
+  - **Example:** If 2 out of 7 days were delivered on a ₹1,499 weekly plan, 5 days remain unserved. The customer receives a prorated refund of ₹1,071 back to their original payment source (or platform wallet).
+  - **Provider Ledger Impact:**
+    - The linked commercial order updates status from `ACCEPTED` to `REFUNDED` (or `PARTIALLY_REFUNDED`).
+    - The refunded amount (`₹1,071`) is automatically debited from the provider's net payout settlement.
+    - Provider keeps only the earnings for the 2 days actually delivered (`₹428`).
+
 ---
 
 ## 4. Customer Portal & Daily Delivery Controls (Step C Reference)
@@ -110,3 +126,22 @@ When the customer clicks `Subscribe Now ➔` in [KitchenDetailModal.jsx](file://
 ### 4.2 Pause & Resume Meal Deliveries
 * Customers can pause upcoming deliveries (e.g. going out of town for the weekend).
 * **Business Rule:** Pausing deliveries automatically extends the subscription end-date by the exact number of paused days.
+
+### 4.3 Advanced Customer Cancellation Flow (Retention Nudge & Interactive Prorated Preview)
+* **Current Implementation:** Customer selects a structured cancellation reason and optional note in the cancellation modal. The subscription status becomes `CANCELLED`, the linked commercial order updates to `CANCELLED (Refund Pending)`, and daily meal dispatches stop immediately.
+* **Future Upgrade (Customer Retention & Automated Refund Engine):**
+  1. **Pause-First Retention Nudge:**
+     - Before finalizing cancellation, present an interactive churn-prevention prompt: *"Travelling or taking a break? Pause your deliveries for up to 30 days instead of cancelling your plan!"*
+     - Provides a 1-click **"Pause Deliveries Instead"** button that immediately pauses upcoming meals without losing the subscriber contract or plan discounts.
+  2. **Interactive Prorated Refund Preview:**
+     - Displays a live calculation breakdown inside the modal before confirmation:
+       - Total Plan Price: ₹X
+       - Days Delivered: $D_{\text{delivered}}$ meals served
+       - Unconsumed Days: $D_{\text{remaining}}$ meals left
+       - Estimated Refund: ₹Y directly to original payment method / customer wallet.
+  3. **Kitchen Daily Prep Cutoff Protection:**
+     - If cancellation occurs past the kitchen morning cooking cutoff (e.g., after 8:30 AM for Lunch):
+       - Today's meal is delivered (groceries and cooking were already executed).
+       - Cancellation and prorated refund take effect starting from tomorrow.
+  4. **Automated Payment Gateway Refund API:**
+     - Direct webhook call to Razorpay/Stripe Refunds API to return the unserved funds to the customer's bank card / UPI without requiring manual customer support intervention.

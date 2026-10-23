@@ -14,15 +14,18 @@ export default function DashboardStats({ onNavigate, onCardClick }) {
     activeSubscribers: null,
     activePlans: null,
     activeRevenue: null,
+    todayOrders: null,
+    pendingOrders: null,
   });
 
   useEffect(() => {
     let isMounted = true;
     const fetchStats = async () => {
       try {
-        const [subsRes, plansRes] = await Promise.all([
+        const [subsRes, plansRes, ordersRes] = await Promise.all([
           api.get('/provider/subscriptions/stats'),
           api.get('/provider/plans?status=ACTIVE'),
+          api.get('/provider/orders/stats'),
         ]);
 
         if (isMounted) {
@@ -30,6 +33,8 @@ export default function DashboardStats({ onNavigate, onCardClick }) {
             activeSubscribers: subsRes.data?.data?.activeCount ?? 0,
             activeRevenue: subsRes.data?.data?.activeRevenue ?? 0,
             activePlans: plansRes.data?.count ?? plansRes.data?.data?.length ?? 0,
+            todayOrders: ordersRes.data?.data?.todayDeliveriesCount ?? 0,
+            todayPaused: ordersRes.data?.data?.todayPausedCount ?? 0,
           });
         }
       } catch (err) {
@@ -47,14 +52,23 @@ export default function DashboardStats({ onNavigate, onCardClick }) {
     {
       id: 'today-orders',
       tab: 'orders',
-      title: "Today's Orders",
-      value: '18',
+      title: "Today's Deliveries",
+      value:
+        liveMetrics.todayOrders !== null
+          ? String(liveMetrics.todayOrders)
+          : '—',
       icon: ShoppingBag,
       iconBg: 'bg-blue-50 text-blue-600',
-      badge: {
-        type: 'warning',
-        text: '5 need attention',
-      },
+      badge:
+        liveMetrics.todayPaused > 0
+          ? {
+              type: 'warning',
+              text: `${liveMetrics.todayPaused} on hold`,
+            }
+          : {
+              type: 'success',
+              text: 'Kitchen active',
+            },
       linkTitle: 'View orders',
     },
     {

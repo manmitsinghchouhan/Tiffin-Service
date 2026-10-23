@@ -83,11 +83,25 @@ const subscriptionSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ["ACTIVE", "PAUSED", "EXPIRED", "CANCELLED"],
+        values: ["PENDING", "ACTIVE", "PAUSED", "EXPIRED", "CANCELLED"],
         message: "{VALUE} is not a valid subscription status",
       },
       default: "ACTIVE",
       index: true,
+    },
+    cancellationReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    cancelledBy: {
+      type: String,
+      enum: ["PROVIDER", "CUSTOMER", "SYSTEM", ""],
+      default: "",
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
     },
   },
   {

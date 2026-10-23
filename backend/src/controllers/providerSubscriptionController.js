@@ -1,4 +1,5 @@
 import Subscription from "../models/Subscription.js";
+import Order from "../models/Order.js";
 import TiffinProvider from "../models/TiffinProvider.js";
 import User from "../models/User.js";
 import ApiError from "../utils/ApiError.js";
@@ -315,6 +316,7 @@ export const resumeProviderSubscription = asyncHandler(async (req, res) => {
  */
 export const cancelProviderSubscription = asyncHandler(async (req, res) => {
   const provider = await getAuthenticatedProvider(req.user._id);
+  const { reason } = req.body;
 
   const subscription = await Subscription.findOne({
     _id: req.params.id,
@@ -332,13 +334,33 @@ export const cancelProviderSubscription = asyncHandler(async (req, res) => {
     );
   }
 
+  const finalReason =
+    (reason && typeof reason === "string" && reason.trim()) ||
+    "Kitchen reached maximum cooking capacity";
+
   subscription.status = "CANCELLED";
   subscription.autoRenewal = false;
+  subscription.cancellationReason = finalReason;
+  subscription.cancelledBy = "PROVIDER";
+  subscription.cancelledAt = new Date();
   await subscription.save();
+
+  // Synchronize linked Order record(s) so Commercial Order Ledger reflects CANCELLED
+  await Order.updateMany(
+    { subscriptionId: subscription._id },
+    {
+      $set: {
+        status: "CANCELLED",
+        cancellationReason: finalReason,
+        cancelledBy: "PROVIDER",
+        cancelledAt: new Date(),
+      },
+    }
+  );
 
   res.status(200).json({
     success: true,
-    message: "Subscription has been cancelled.",
+    message: "Subscription and associated order have been cancelled.",
     data: subscription,
   });
 });

@@ -1,8 +1,11 @@
 import User from "../models/User.js";
 import TiffinProvider from "../models/TiffinProvider.js";
+import TiffinPlan from "../models/TiffinPlan.js";
+import WeeklyMenu from "../models/WeeklyMenu.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { generateToken } from "../utils/jwt.js";
+import { EMPTY_WEEKLY_MENU_TEMPLATE } from "./providerMenuController.js";
 
 // Secure HTTP-Only Cookie Configuration
 export const getCookieOptions = () => ({
@@ -387,3 +390,248 @@ export const reapplyOnboarding = asyncHandler(async (req, res) => {
     },
   });
 });
+
+/**
+ * @desc    Get authenticated provider's live customer preview showcase (kitchen, plans, menu)
+ * @route   GET /api/provider/preview
+ * @access  Private (Provider only)
+ */
+export const getProviderPublicPreview = asyncHandler(async (req, res) => {
+  const kitchen = await TiffinProvider.findOne({ userId: req.user._id }).lean();
+
+  if (!kitchen) {
+    throw new ApiError(
+      404,
+      "Provider kitchen profile not found. Please complete profile setup first.",
+    );
+  }
+
+  // Fetch active plans and weekly menu
+  const [plans, weeklyMenuDoc] = await Promise.all([
+    TiffinPlan.find({ providerId: kitchen._id, status: "ACTIVE" })
+      .sort({ price: 1 })
+      .lean(),
+    WeeklyMenu.findOne({ providerId: kitchen._id }).lean(),
+  ]);
+
+  // Clean format for weekly menu
+  const weeklyMenu = {};
+  const DAYS = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+  for (const day of DAYS) {
+    weeklyMenu[day] = weeklyMenuDoc?.[day] || EMPTY_WEEKLY_MENU_TEMPLATE[day];
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      kitchen,
+      plans,
+      weeklyMenu,
+      isPreview: true,
+    },
+  });
+});
+
+/**
+ * @desc    Update provider's business profile identity, branding, location, contact, and FSSAI
+ * @route   PUT /api/provider/profile
+ * @access  Private (Provider only)
+ */
+export const updateBusinessProfile = asyncHandler(async (req, res) => {
+  const providerProfile = await TiffinProvider.findOne({ userId: req.user._id });
+
+  if (!providerProfile) {
+    throw new ApiError(
+      404,
+      "Provider profile not found. Please complete initial onboarding first.",
+    );
+  }
+
+  const {
+    businessName,
+    tagline,
+    description,
+    foodType,
+    address,
+    city,
+    contactNumber,
+    whatsappNumber,
+    serviceArea,
+    imageUrl,
+    bannerUrl,
+    isAcceptingOrders,
+    operatingStatus,
+    fssaiNumber,
+    fssaiExpiry,
+    ownerName,
+  } = req.body;
+
+  // Validate core information if provided
+  if (businessName !== undefined) {
+    if (!businessName || !businessName.trim()) {
+      throw new ApiError(400, "Business name cannot be empty");
+    }
+    providerProfile.businessName = businessName.trim();
+  }
+
+  if (address !== undefined) {
+    if (!address || !address.trim()) {
+      throw new ApiError(400, "Address cannot be empty");
+    }
+    providerProfile.address = address.trim();
+  }
+
+  if (city !== undefined) {
+    if (!city || !city.trim()) {
+      throw new ApiError(400, "City cannot be empty");
+    }
+    providerProfile.city = city.trim();
+  }
+
+  if (foodType !== undefined) {
+    const validTypes = ["VEG", "NON_VEG", "BOTH"];
+    const normalizedType = String(foodType).trim().toUpperCase();
+    if (!validTypes.includes(normalizedType)) {
+      throw new ApiError(
+        400,
+        `Invalid food type: ${foodType}. Allowed: ${validTypes.join(", ")}`,
+      );
+    }
+    providerProfile.foodType = normalizedType;
+  }
+
+  if (tagline !== undefined) {
+    providerProfile.tagline = tagline ? tagline.trim() : "";
+  }
+
+  if (description !== undefined) {
+    providerProfile.description = description ? description.trim() : "";
+  }
+
+  if (contactNumber !== undefined) {
+    if (!contactNumber || !contactNumber.trim()) {
+      throw new ApiError(400, "Contact phone number cannot be empty");
+    }
+    providerProfile.contactNumber = contactNumber.trim();
+  }
+
+  if (whatsappNumber !== undefined) {
+    providerProfile.whatsappNumber = whatsappNumber ? whatsappNumber.trim() : "";
+  }
+
+  // Interactive Service Area Tag normalization
+  if (serviceArea !== undefined) {
+    const rawAreas = Array.isArray(serviceArea)
+      ? serviceArea
+      : typeof serviceArea === "string"
+        ? serviceArea.split(",")
+        : [];
+
+    const cleanedAreas = rawAreas
+      .map((a) => (typeof a === "string" ? a.trim() : ""))
+      .filter((a) => a.length > 0);
+
+    providerProfile.serviceArea = Array.from(new Set(cleanedAreas));
+  }
+
+  // Visual Branding
+  if (imageUrl !== undefined) {
+    providerProfile.imageUrl = imageUrl ? imageUrl.trim() : "";
+  }
+
+  if (bannerUrl !== undefined) {
+    providerProfile.bannerUrl = bannerUrl ? bannerUrl.trim() : "";
+  }
+
+  // Live Operating Status Toggle
+  if (isAcceptingOrders !== undefined) {
+    providerProfile.isAcceptingOrders = Boolean(isAcceptingOrders);
+    providerProfile.operatingStatus = providerProfile.isAcceptingOrders ? "OPEN" : "BUSY";
+  } else if (operatingStatus !== undefined) {
+    const normalizedStatus = String(operatingStatus).trim().toUpperCase();
+    if (["OPEN", "BUSY"].includes(normalizedStatus)) {
+      providerProfile.operatingStatus = normalizedStatus;
+      providerProfile.isAcceptingOrders = normalizedStatus === "OPEN";
+    }
+  }
+
+  // Compliance & FSSAI Card
+  if (fssaiNumber !== undefined) {
+    providerProfile.fssaiNumber = fssaiNumber ? fssaiNumber.trim() : "";
+  }
+
+  if (fssaiExpiry !== undefined) {
+    providerProfile.fssaiExpiry = fssaiExpiry ? fssaiExpiry.trim() : "";
+  }
+
+  await providerProfile.save();
+
+  // If owner name was updated, update User document as well
+  if (ownerName && ownerName.trim() && req.user) {
+    req.user.name = ownerName.trim();
+    await req.user.save();
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Business profile updated successfully",
+    data: {
+      providerProfile,
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        phone: req.user.phone,
+        role: req.user.role,
+        status: req.user.status,
+      },
+    },
+  });
+});
+
+/**
+ * @desc    Quick 1-click toggle for kitchen operating status (OPEN vs BUSY)
+ * @route   PATCH /api/provider/profile/status
+ * @access  Private (Provider only)
+ */
+export const toggleOperatingStatus = asyncHandler(async (req, res) => {
+  const providerProfile = await TiffinProvider.findOne({ userId: req.user._id });
+
+  if (!providerProfile) {
+    throw new ApiError(404, "Provider profile not found.");
+  }
+
+  let nextOpen;
+  if (req.body.isAcceptingOrders !== undefined) {
+    nextOpen = Boolean(req.body.isAcceptingOrders);
+  } else if (req.body.operatingStatus !== undefined) {
+    nextOpen = String(req.body.operatingStatus).trim().toUpperCase() === "OPEN";
+  } else {
+    nextOpen = !providerProfile.isAcceptingOrders;
+  }
+
+  providerProfile.isAcceptingOrders = nextOpen;
+  providerProfile.operatingStatus = nextOpen ? "OPEN" : "BUSY";
+  await providerProfile.save();
+
+  res.status(200).json({
+    success: true,
+    message: nextOpen
+      ? "Kitchen is now OPEN and accepting new orders & subscribers"
+      : "Kitchen is now marked BUSY / At Capacity (Not taking new subscribers)",
+    data: {
+      isAcceptingOrders: providerProfile.isAcceptingOrders,
+      operatingStatus: providerProfile.operatingStatus,
+    },
+  });
+});
+
+

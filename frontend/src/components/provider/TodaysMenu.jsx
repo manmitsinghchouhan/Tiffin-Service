@@ -9,12 +9,18 @@ import {
   Info,
 } from 'lucide-react';
 import { INITIAL_MENU_DATA, DAYS_OF_WEEK } from './WeeklyMenu';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TodaysMenu({
   onEditMenu,
   onEditMenuClick,
   menuData = INITIAL_MENU_DATA,
 }) {
+  const { providerProfile } = useAuth();
+  const orderTiming = providerProfile?.settings?.orderTiming || {};
+  const defaultLunchTiming = orderTiming.lunchDeliveryWindow || '12:00 PM - 01:30 PM';
+  const defaultDinnerTiming = orderTiming.dinnerDeliveryWindow || '07:30 PM - 09:00 PM';
+
   // Determine current day of week (e.g. "Monday")
   const todayIndex = new Date().getDay(); // 0 is Sunday, 1 is Monday...
   const dayMapping = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -54,14 +60,14 @@ export default function TodaysMenu({
       mealType: 'Lunch',
       icon: Sun,
       iconContainerStyle: 'bg-emerald-50 border border-emerald-200/70 text-emerald-500',
-      timing: dayMenu.lunch?.timing || '12:30 PM - 2:00 PM',
+      timing: dayMenu.lunch?.timing || defaultLunchTiming,
       items: dayMenu.lunch?.items || [],
     },
     {
       mealType: 'Dinner',
       icon: Moon,
       iconContainerStyle: 'bg-purple-50 border border-purple-200/70 text-purple-500',
-      timing: dayMenu.dinner?.timing || '7:30 PM - 9:00 PM',
+      timing: dayMenu.dinner?.timing || defaultDinnerTiming,
       items: dayMenu.dinner?.items || [],
     },
   ];

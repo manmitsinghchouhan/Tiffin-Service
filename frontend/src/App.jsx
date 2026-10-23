@@ -36,11 +36,13 @@ export default function App() {
           {/* Provider Application Status ("Pending Approval" / "Milestone" / "Rejected") */}
           <Route path="/provider/status" element={<ProviderStatus />} />
 
-          {/* Provider Active Kitchen Dashboard, Weekly Menu, Tiffin Plans & Subscriptions */}
+          {/* Provider Active Kitchen Dashboard, Weekly Menu, Tiffin Plans, Subscriptions & Customers */}
           <Route path="/provider/dashboard" element={<ProviderDashboard />} />
           <Route path="/provider/menu" element={<ProviderDashboard initialTab="weekly-menu" />} />
           <Route path="/provider/plans" element={<ProviderDashboard initialTab="tiffin-plans" />} />
           <Route path="/provider/subscriptions" element={<ProviderDashboard initialTab="subscriptions" />} />
+          <Route path="/provider/customers" element={<ProviderDashboard initialTab="customers" />} />
+          <Route path="/provider/orders" element={<ProviderDashboard initialTab="orders" />} />
 
           {/* Customer Authentication & Dashboard */}
           <Route path="/login" element={<CustomerAuth initialMode="login" />} />

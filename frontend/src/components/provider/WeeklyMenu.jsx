@@ -13,6 +13,7 @@ import {
 import AddItemModal from './AddItemModal';
 import EditMealModal from './EditMealModal';
 import ManageMenuModal from './ManageMenuModal';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
 export const DAYS_OF_WEEK = [
@@ -28,38 +29,38 @@ export const DAYS_OF_WEEK = [
 export const INITIAL_MENU_DATA = {
   Monday: {
     breakfast: { timing: '8:00 AM - 10:00 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:00 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: '12:00 PM - 01:30 PM', items: [] },
+    dinner: { timing: '07:30 PM - 09:00 PM', items: [] },
   },
   Tuesday: {
     breakfast: { timing: '8:00 AM - 10:00 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:00 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: '12:00 PM - 01:30 PM', items: [] },
+    dinner: { timing: '07:30 PM - 09:00 PM', items: [] },
   },
   Wednesday: {
     breakfast: { timing: '8:00 AM - 10:00 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:00 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: '12:00 PM - 01:30 PM', items: [] },
+    dinner: { timing: '07:30 PM - 09:00 PM', items: [] },
   },
   Thursday: {
     breakfast: { timing: '8:00 AM - 10:00 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:00 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: '12:00 PM - 01:30 PM', items: [] },
+    dinner: { timing: '07:30 PM - 09:00 PM', items: [] },
   },
   Friday: {
     breakfast: { timing: '8:00 AM - 10:00 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:00 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: '12:00 PM - 01:30 PM', items: [] },
+    dinner: { timing: '07:30 PM - 09:00 PM', items: [] },
   },
   Saturday: {
     breakfast: { timing: '8:00 AM - 10:00 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:00 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: '12:00 PM - 01:30 PM', items: [] },
+    dinner: { timing: '07:30 PM - 09:00 PM', items: [] },
   },
   Sunday: {
     breakfast: { timing: '8:30 AM - 10:30 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:30 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: '12:00 PM - 01:30 PM', items: [] },
+    dinner: { timing: '07:30 PM - 09:00 PM', items: [] },
   },
 };
 
@@ -71,6 +72,11 @@ export default function WeeklyMenu({
   isSaving = false,
   isLoading = false,
 }) {
+  const { providerProfile } = useAuth();
+  const orderTiming = providerProfile?.settings?.orderTiming || {};
+  const defaultLunchTiming = orderTiming.lunchDeliveryWindow || '12:00 PM - 01:30 PM';
+  const defaultDinnerTiming = orderTiming.dinnerDeliveryWindow || '07:30 PM - 09:00 PM';
+
   const [selectedDay, setSelectedDay] = useState('Monday');
 
   // Modal State
@@ -81,8 +87,8 @@ export default function WeeklyMenu({
 
   const currentDayData = menuData[selectedDay] || {
     breakfast: { timing: '8:00 AM - 10:00 AM', items: [] },
-    lunch: { timing: '12:30 PM - 2:00 PM', items: [] },
-    dinner: { timing: '7:30 PM - 9:00 PM', items: [] },
+    lunch: { timing: defaultLunchTiming, items: [] },
+    dinner: { timing: defaultDinnerTiming, items: [] },
   };
 
   const mealCards = [
@@ -97,7 +103,7 @@ export default function WeeklyMenu({
     {
       type: 'lunch',
       title: 'Lunch',
-      timing: currentDayData.lunch?.timing || '12:30 PM - 2:00 PM',
+      timing: currentDayData.lunch?.timing || defaultLunchTiming,
       icon: Sun,
       iconBg: 'bg-emerald-50 border border-emerald-100 text-emerald-500',
       data: currentDayData.lunch,
@@ -105,7 +111,7 @@ export default function WeeklyMenu({
     {
       type: 'dinner',
       title: 'Dinner',
-      timing: currentDayData.dinner?.timing || '7:30 PM - 9:00 PM',
+      timing: currentDayData.dinner?.timing || defaultDinnerTiming,
       icon: Moon,
       iconBg: 'bg-purple-50 border border-purple-100 text-purple-500',
       data: currentDayData.dinner,

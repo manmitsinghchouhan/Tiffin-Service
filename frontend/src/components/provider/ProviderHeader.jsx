@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function ProviderHeader({ onOpenMobile, onTriggerNotice }) {
+export default function ProviderHeader({ onOpenMobile, onTriggerNotice, onPreviewKitchen }) {
   const { user, providerProfile, logoutProvider } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -83,7 +83,7 @@ export default function ProviderHeader({ onOpenMobile, onTriggerNotice }) {
 
           {/* Quick Dropdown */}
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="p-2 border-b border-slate-100 mb-1">
                 <div className="text-xs font-bold text-slate-900 truncate">{kitchenName}</div>
                 <div className="text-[11px] text-slate-400 truncate">{user?.email}</div>
@@ -92,12 +92,15 @@ export default function ProviderHeader({ onOpenMobile, onTriggerNotice }) {
               <button
                 onClick={() => {
                   setDropdownOpen(false);
-                  onTriggerNotice?.('Public profile view will be available once customer catalog is active');
+                  onPreviewKitchen?.();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 transition-all cursor-pointer group"
               >
-                <Store className="w-4 h-4 text-slate-400" />
-                <span>View Kitchen Profile</span>
+                <div className="flex items-center gap-2">
+                  <Store className="w-4 h-4 text-emerald-600" />
+                  <span>Preview Public Kitchen</span>
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
               </button>
 
               <button

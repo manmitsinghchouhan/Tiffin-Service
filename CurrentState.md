@@ -589,14 +589,93 @@ The Weekly Menu interface has been implemented following the attached reference 
 
 ---
 
-## 11. Next Steps on the Roadmap
+11. **Provider Customer Directory (CRM) API (Completed & Verified):**
+   - **Backend Controller ([backend/src/controllers/providerCustomerController.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/controllers/providerCustomerController.js))**:
+     - `getProviderCustomerStats` (`GET /api/provider/customers/stats`): Computes customer health KPIs: `totalCustomers` (unique clients who ever ordered), `activeCustomers` (currently eating), `repeatCustomers` (subscribed $\ge 2$ times), `lapsedCustomers`, `avgLtv` (average lifetime spend per customer in ₹), and `repeatRate` percentage.
+     - `getProviderCustomers` (`GET /api/provider/customers`): High-performance aggregation pipeline grouping subscriptions by customer. Enriches each customer with `totalSpent`, `totalSubscriptions`, `isRepeat`, derived `status` (`ACTIVE`, `PAUSED`, `LAPSED`), `activePlan`, `primaryAddress`, and `customerSince`. Supports keyword search across name, phone, email, and address; status filtering; segment filtering (`REPEAT`, `NEW`); sorting (`recent`, `spend_desc`, `subs_desc`, `name_asc`); and pagination.
+     - `getProviderCustomerById` (`GET /api/provider/customers/:id`): Fetches complete 360° customer profile including lifetime spend, all saved delivery addresses, all historical dietary notes, and chronological timeline of every subscription with this kitchen.
+   - **Routes & Mounting ([backend/src/routes/providerCustomerRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/providerCustomerRoutes.js))**:
+     - Protected with `authenticate` and `isProvider` middleware.
+     - Mounted in [backend/src/routes/index.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/index.js) at `/api/provider/customers`.
 
-1. **Provider Daily Orders & Delivery Run-Sheets:**
-   - Real subscriber dispatch lists and daily delivery sheets for morning and evening meal routes.
-2. **Payment Gateway Integration (Razorpay / Stripe):**
+12. **Provider Customer Directory (CRM) Frontend & 360° Drawer (Completed & Verified):**
+   - **Matching Reference Design ([Image 2](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/))**:
+     - Built comprehensive customer relationship management (CRM) hub tailored for daily food service operations.
+   - **Components Built ([frontend/src/components/provider/](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/))**:
+     - **`Customers.jsx` ([frontend/src/components/provider/Customers.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/Customers.jsx))**:
+       - **Top 4 KPI Metric Cards**:
+         - *Total Customers*: All-time unique diners who subscribed to this kitchen.
+         - *Active Diners*: Subscribers currently receiving meals daily.
+         - *Repeat Customers*: Retention percentage (%) of customers who subscribed $\ge 2$ times.
+         - *Average Spend (LTV)*: Average customer lifetime value in ₹.
+       - **Interactive Search & Segment Controls**:
+         - Full-width search bar: Instant filtering by Name, Phone, Email, Delivery Street, or Locality.
+         - Segment filter pills: `All`, `Active`, `Repeat`, `Lapsed`, and `New` with dynamic counts.
+         - Dropdown filters: `All Plans` and `Sort by` (Recent First, Highest Spend LTV, Most Subscriptions, Name A-Z).
+         - CSV Export: Instant client-side download of the full customer directory to CSV.
+       - **Customers Table**:
+         - Columns: `CUSTOMER`, `STATUS`, `ACTIVE PLAN`, `LIFETIME SPEND`, `TOTAL PLANS`, `LOCATION`, `CUSTOMER SINCE`, `ACTION`.
+         - Dynamic avatars with initials in pastel color coding.
+         - Status pills: `Active` (Emerald), `Paused` (Amber), `Repeat` (Purple), `Lapsed` (Slate).
+         - Active plan highlights with meal and diet badges (`🍴 Lunch`, `🌱 Veg`).
+         - Actions: `View` button and three-dots menu with 1-click Call, WhatsApp, and 360° Profile actions.
+     - **`CustomerDetailDrawer.jsx` ([frontend/src/components/provider/CustomerDetailDrawer.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/CustomerDetailDrawer.jsx))**:
+       - Slide-over right drawer for 360° customer inspection.
+       - Quick contact bar: 1-click **Call** (`tel:`), **WhatsApp** (`https://wa.me/...`), and **Email** (`mailto:`).
+       - Lifetime stats cards: Total Spent (₹), Total Plans, First Order Date, Last Delivery Date.
+       - Active plan overview card with duration, dates, and remaining days.
+       - Delivery address summary with inline edit modal.
+       - Kitchen instructions & notes with inline editor allowing staff to record food preferences, allergies, and delivery requests.
+       - Chronological Subscriptions & Meals history tabs.
+     - **`App.jsx` & `ProviderDashboard.jsx`**:
+       - Direct route `/provider/customers` mapped in `App.jsx`.
+       - Wired into sidebar navigation and overview quick actions.
+
+---
+
+12. **Provider Orders & Daily Dispatch Management API (Completed & Verified):**
+   - **Backend Controller ([backend/src/controllers/providerOrderController.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/controllers/providerOrderController.js))**:
+     - `getProviderOrderStats` (`GET /api/provider/orders/stats`): Returns live commercial KPIs: `totalOrders`, `pendingOrders`, `acceptedOrders`, `completedOrders`, `totalRevenue` (sum of accepted & completed order values), and `todayDeliveriesCount`.
+     - `getProviderDailyDispatch` (`GET /api/provider/orders/daily-dispatch`): **Kitchen Run-Sheet Engine.** Accepts `?date=YYYY-MM-DD` and `?mealType=ALL|BREAKFAST|LUNCH|DINNER`. Dynamically calculates every active subscriber scheduled for delivery on that date, respects schedule constraints (`WEEKDAYS_ONLY`, `MON_TO_SAT`), automatically detects paused subscriptions (`isPaused: true`), generates meal tally counts (total meals, veg portions, non-veg portions, paused skips), and returns clean route lists with customer contacts, addresses, landmarks, and dietary notes.
+     - `getProviderOrders` (`GET /api/provider/orders`): Lists commercial orders with search across order code, customer name, phone, email, and address; status filtering (`PENDING`, `ACCEPTED`, `COMPLETED`, `CANCELLED`); pagination; and human-readable order codes (`#ORD-XXXXXX`).
+     - `getProviderOrderById` (`GET /api/provider/orders/:id`): Fetches complete order details for invoice and receipt inspection.
+     - `updateProviderOrderStatus` (`PATCH /api/provider/orders/:id/status`): Allows kitchen managers to accept, reject, complete, or cancel orders, and synchronizes linked subscription state if rejected.
+   - **Routes & Mounting ([backend/src/routes/providerOrderRoutes.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/providerOrderRoutes.js))**:
+     - Protected with `authenticate` and `isProvider` middleware.
+     - Mounted in [backend/src/routes/index.js](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/backend/src/routes/index.js) at `/api/provider/orders`.
+
+---
+
+13. **Provider Orders & Daily Dispatch Frontend (Completed & Verified):**
+   - **`Orders.jsx` ([frontend/src/components/provider/Orders.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/Orders.jsx))**:
+     - **Top 4 KPI Metrics**: Total Orders, Pending Approval (pulsating alert if pending), Today's Deliveries, and Orders Revenue in ₹.
+     - **Dual-View Switcher**:
+       - **Tab 1: 🛵 Daily Kitchen Dispatch Run-Sheet**:
+         - Date selector (Today, Tomorrow, Date Picker) & Meal Slot filters (All Meals, Breakfast, Lunch, Dinner).
+         - High-impact Kitchen Prep Tally Bar (Meals to Cook, Pure Veg portions, Non-Veg portions, Paused/Skipped skips).
+         - Delivery Route Manifest Table with customer names, 1-click Call & WhatsApp links, street address with copy button, dietary notes, and interactive dispatch status toggles (Cooking/Packing ➔ Out for Delivery ➔ Delivered).
+         - Print Run-Sheet trigger with print optimization.
+       - **Tab 2: 📋 Commercial Orders Ledger**:
+         - Search by Order Code, customer name, phone, or address; Status filter pills.
+         - Orders table with order code, date/time, customer avatar, plan snapshot, amount paid, status pills, Quick Accept/Reject buttons, and invoice inspection button.
+         - CSV Export for commercial accounting.
+   - **`OrderDetailModal.jsx` ([frontend/src/components/provider/OrderDetailModal.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/OrderDetailModal.jsx))**:
+     - Commercial invoice/receipt with order ID, date, customer info, delivery address, plan breakdown (Rate, Duration, Packaging/Delivery, Total ₹), status badge, quick status updater, and print button.
+   - **Dashboard Integration**:
+     - Mounted in [ProviderDashboard.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/pages/ProviderDashboard.jsx) under `activeTab === 'orders'`.
+     - Route `/provider/orders` registered in [App.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/App.jsx).
+     - Overview tab [RecentOrders.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/RecentOrders.jsx) and [DashboardStats.jsx](file:///c:/Users/manmi/OneDrive/Desktop/Tiffin%20Service/frontend/src/components/provider/DashboardStats.jsx) wired to live `/api/provider/orders` endpoints.
+
+---
+
+## 14. Next Steps on the Roadmap
+
+1. **Payment Gateway Integration (Razorpay / Stripe):**
    - Connect live payment processing to replace the test simulation gateway.
-3. **Feedback & Review Ratings Integration:**
+2. **Feedback & Review Ratings Integration:**
    - Connect MongoDB `Feedback` aggregation to replace static star ratings.
+
+
 
 
 

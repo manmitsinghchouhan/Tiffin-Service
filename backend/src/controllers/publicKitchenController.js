@@ -1,8 +1,10 @@
+import mongoose from "mongoose";
 import TiffinProvider from "../models/TiffinProvider.js";
 import TiffinPlan from "../models/TiffinPlan.js";
 import WeeklyMenu from "../models/WeeklyMenu.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { verifyToken } from "../utils/jwt.js";
 import { EMPTY_WEEKLY_MENU_TEMPLATE } from "./providerMenuController.js";
 
 /**
@@ -155,13 +157,50 @@ export const getPublicCities = asyncHandler(async (req, res) => {
  * @access  Public
  */
 export const getPublicKitchenById = asyncHandler(async (req, res) => {
-  const kitchen = await TiffinProvider.findOne({
-    _id: req.params.id,
-    verificationStatus: "VERIFIED",
-  }).lean();
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid kitchen ID format");
+  }
+
+  const kitchen = await TiffinProvider.findById(id).lean();
 
   if (!kitchen) {
-    throw new ApiError(404, "Verified kitchen profile not found");
+    throw new ApiError(404, "Kitchen profile not found");
+  }
+
+  // If the kitchen is not verified, allow preview ONLY if the request is from the kitchen owner or admin
+  let isPreview = false;
+  if (kitchen.verificationStatus !== "VERIFIED") {
+    let token =
+      req.cookies?.providerToken ||
+      req.cookies?.adminToken ||
+      req.cookies?.token;
+
+    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    let isAuthorized = false;
+    if (token) {
+      try {
+        const decoded = verifyToken(token);
+        if (
+          decoded &&
+          (decoded.role === "ADMIN" ||
+            kitchen.userId?.toString() === decoded.id?.toString())
+        ) {
+          isAuthorized = true;
+          isPreview = true;
+        }
+      } catch (err) {
+        // invalid token
+      }
+    }
+
+    if (!isAuthorized) {
+      throw new ApiError(404, "Verified kitchen profile not found");
+    }
   }
 
   // Concurrently fetch active plans and weekly menu
@@ -185,6 +224,7 @@ export const getPublicKitchenById = asyncHandler(async (req, res) => {
       kitchen,
       plans,
       weeklyMenu,
+      isPreview,
     },
   });
 });

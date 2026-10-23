@@ -22,6 +22,7 @@ import {
   Loader2
 } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 // Curated high quality Indian cuisine image fallbacks
 const FALLBACK_BANNERS = [
@@ -65,6 +66,20 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+
+  const { user, isCustomer } = useAuth();
+  const [customerSubs, setCustomerSubs] = useState([]);
+
+  // Fetch logged-in customer's subscriptions to detect pending or active plans
+  useEffect(() => {
+    if (user && isCustomer) {
+      api.get('/customer/subscriptions')
+        .then((res) => {
+          setCustomerSubs(res.data?.data || []);
+        })
+        .catch(() => {});
+    }
+  }, [user, isCustomer]);
 
   // Auto-select current day of week on initial open
   useEffect(() => {
@@ -205,9 +220,19 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
     ];
   };
 
-  const handleSubscribeClick = (plan) => {
+  const isPaused =
+    kitchen?.isAcceptingOrders === false || kitchen?.operatingStatus === 'BUSY';
+
+  const handleSubscribeClick = (plan, existingPendingSub = null) => {
+    if (isPaused) {
+      alert(
+        `${kitchen?.businessName || 'This kitchen'} is currently at prep capacity (Paused) and not accepting new orders or subscribers.`
+      );
+      return;
+    }
+
     if (onSelectPlan) {
-      onSelectPlan(plan, kitchen);
+      onSelectPlan(plan, kitchen, existingPendingSub);
     } else {
       alert(`Selected Plan: ${plan.name} (₹${plan.price} / ${plan.durationDays} days).\n\nCustomer Checkout Flow (Step B) will launch next!`);
     }
@@ -322,6 +347,19 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                       {kitchen.address ? `${kitchen.address}, ` : ''}{kitchen.city}
                     </span>
                   </div>
+
+                  {/* At Capacity / Paused Banner */}
+                  {isPaused && (
+                    <div className="mt-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Kitchen At Capacity (Paused)</span>
+                      </div>
+                      <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
+                        This kitchen has reached order capacity. You can browse the menu, but new subscriptions are currently paused.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bio / Description */}
@@ -381,6 +419,54 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                         {area}
                       </span>
                     ))}
+                  </div>
+                </div>
+
+                {/* Daily Cutoff Deadlines Section */}
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <div className="w-5 h-5 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
+                      <Clock className="w-3 h-3" />
+                    </div>
+                    <span>Daily Cutoff Deadlines</span>
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200/80 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">Lunch Order Cutoff:</span>
+                      <span className="text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                        {kitchen.settings?.orderTiming?.lunchCutoff || '09:30 AM'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">Dinner Order Cutoff:</span>
+                      <span className="text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                        {kitchen.settings?.orderTiming?.dinnerCutoff || '04:30 PM'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expected Delivery Slots Section */}
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <div className="w-5 h-5 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <Clock className="w-3 h-3" />
+                    </div>
+                    <span>Expected Delivery Slots</span>
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200/80 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">Lunch Delivery:</span>
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                        {kitchen.settings?.orderTiming?.lunchDeliveryWindow || '12:00 PM - 01:30 PM'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 font-medium">Dinner Delivery:</span>
+                      <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                        {kitchen.settings?.orderTiming?.dinnerDeliveryWindow || '07:30 PM - 09:00 PM'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -515,7 +601,7 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                           <div>
                             <h4 className="text-sm font-bold text-slate-900">Lunch</h4>
                             <span className="text-[11px] text-emerald-700 font-medium">
-                              {dayMenu.lunch?.timing || '12:30 PM - 2:00 PM'}
+                              {kitchen.settings?.orderTiming?.lunchDeliveryWindow || dayMenu.lunch?.timing || '12:00 PM - 01:30 PM'}
                             </span>
                           </div>
                         </div>
@@ -560,7 +646,7 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                           <div>
                             <h4 className="text-sm font-bold text-slate-900">Dinner</h4>
                             <span className="text-[11px] text-purple-700 font-medium">
-                              {dayMenu.dinner?.timing || '7:30 PM - 9:00 PM'}
+                              {kitchen.settings?.orderTiming?.dinnerDeliveryWindow || dayMenu.dinner?.timing || '07:30 PM - 09:00 PM'}
                             </span>
                           </div>
                         </div>
@@ -768,16 +854,70 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                               </div>
                             </div>
 
-                            {/* Subscribe Button */}
+                            {/* Subscribe Button / Pending / Active state */}
                             <div className="p-4 pt-0">
-                              <button
-                                type="button"
-                                onClick={() => handleSubscribeClick(plan)}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
-                              >
-                                <span>Subscribe Now</span>
-                                <ArrowRight className="w-4 h-4" />
-                              </button>
+                              {(() => {
+                                const pendingSubForPlan = customerSubs.find(
+                                  (s) =>
+                                    (s.planId?._id === plan._id || s.planId === plan._id) &&
+                                    s.status === 'PENDING'
+                                );
+                                const activeSubForPlan = customerSubs.find(
+                                  (s) =>
+                                    (s.planId?._id === plan._id || s.planId === plan._id) &&
+                                    (s.status === 'ACTIVE' || s.status === 'PAUSED')
+                                );
+
+                                if (isPaused) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="w-full bg-slate-100 border border-slate-200 text-slate-400 font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm cursor-not-allowed"
+                                    >
+                                      <span>Kitchen At Capacity (Paused)</span>
+                                    </button>
+                                  );
+                                }
+
+                                if (pendingSubForPlan) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSubscribeClick(plan, pendingSubForPlan)}
+                                      className="w-full bg-amber-50 hover:bg-amber-100 border-2 border-amber-300 text-amber-900 font-bold py-2.5 px-4 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
+                                      title="Click to view existing pending request"
+                                    >
+                                      <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
+                                      <span>Pending Approval ⏳</span>
+                                    </button>
+                                  );
+                                }
+
+                                if (activeSubForPlan) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      className="w-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm cursor-default"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      <span>Currently Subscribed ✓</span>
+                                    </button>
+                                  );
+                                }
+
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSubscribeClick(plan)}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
+                                  >
+                                    <span>Subscribe Now</span>
+                                    <ArrowRight className="w-4 h-4" />
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </div>
                         );

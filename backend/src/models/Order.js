@@ -84,6 +84,20 @@ const orderSchema = new mongoose.Schema(
       default: "PENDING",
       index: true,
     },
+    cancellationReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    cancelledBy: {
+      type: String,
+      enum: ["PROVIDER", "CUSTOMER", "SYSTEM", ""],
+      default: "",
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
     notes: {
       type: String,
       trim: true,

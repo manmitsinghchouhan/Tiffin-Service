@@ -22,7 +22,12 @@ import RecentOrders from '../components/provider/RecentOrders';
 import QuickActions from '../components/provider/QuickActions';
 import WeeklyMenu, { INITIAL_MENU_DATA } from '../components/provider/WeeklyMenu';
 import TiffinPlans from '../components/provider/TiffinPlans';
+import Orders from '../components/provider/Orders';
 import Subscriptions from '../components/provider/Subscriptions';
+import Customers from '../components/provider/Customers';
+import BusinessProfile from '../components/provider/BusinessProfile';
+import Settings from '../components/provider/Settings';
+import KitchenDetailModal from '../components/KitchenDetailModal';
 
 export default function ProviderDashboard({ initialTab = 'overview' }) {
   const { user, providerProfile, providerStage, loading } = useAuth();
@@ -30,6 +35,7 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   // Persistent / Live Menu Data across sessions
   const [menuData, setMenuData] = useState(() => {
@@ -152,18 +158,18 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
       tabId === 'overview' ||
       tabId === 'weekly-menu' ||
       tabId === 'tiffin-plans' ||
-      tabId === 'subscriptions'
+      tabId === 'orders' ||
+      tabId === 'subscriptions' ||
+      tabId === 'customers' ||
+      tabId === 'profile' ||
+      tabId === 'settings'
     ) {
       setActiveTab(tabId);
     } else {
       setActiveTab(tabId);
       const tabNames = {
-        'orders': 'Orders Management',
-        'customers': 'Customer Directory',
         'payments': 'Payments & Earnings',
         'feedback': 'Feedback & Complaints',
-        'profile': 'Business Profile',
-        'settings': 'Settings',
       };
       triggerNotice(
         `${tabNames[tabId] || tabId} module will be connected in future steps.`
@@ -176,8 +182,12 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
       setActiveTab('weekly-menu');
     } else if (tab === 'plans' || tab === 'tiffin-plans') {
       setActiveTab('tiffin-plans');
+    } else if (tab === 'orders') {
+      setActiveTab('orders');
     } else if (tab === 'subscriptions') {
       setActiveTab('subscriptions');
+    } else if (tab === 'customers') {
+      setActiveTab('customers');
     } else {
       triggerNotice(`${title} shortcut will open when that module is connected in future steps.`);
     }
@@ -199,6 +209,13 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
         <ProviderHeader
           onOpenMobile={() => setMobileMenuOpen(true)}
           onTriggerNotice={triggerNotice}
+          onPreviewKitchen={() => {
+            if (!providerProfile?._id) {
+              triggerNotice("Kitchen profile not loaded. Please set up your business profile first.");
+              return;
+            }
+            setPreviewModalOpen(true);
+          }}
         />
 
         {/* Informational Toast Notification */}
@@ -238,10 +255,30 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
               onNavigateToMenu={() => setActiveTab('weekly-menu')}
               onToast={triggerNotice}
             />
+          ) : activeTab === 'orders' ? (
+            <Orders
+              onNavigateToPlans={() => setActiveTab('tiffin-plans')}
+              onToast={triggerNotice}
+            />
           ) : activeTab === 'subscriptions' ? (
             <Subscriptions
               onNavigateToPlans={() => setActiveTab('tiffin-plans')}
               onToast={triggerNotice}
+            />
+          ) : activeTab === 'customers' ? (
+            <Customers
+              onNavigateToPlans={() => setActiveTab('tiffin-plans')}
+              onToast={triggerNotice}
+            />
+          ) : activeTab === 'profile' ? (
+            <BusinessProfile
+              onPreviewKitchen={() => setPreviewModalOpen(true)}
+              onToast={triggerNotice}
+            />
+          ) : activeTab === 'settings' ? (
+            <Settings
+              onToast={triggerNotice}
+              onNavigateToProfile={() => setActiveTab('profile')}
             />
           ) : activeTab === 'overview' ? (
             <>
@@ -259,14 +296,21 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Link
-                    to="/"
-                    title="View public customer-facing website"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-blue-50/50 text-blue-600 border border-blue-200 rounded-2xl text-xs font-semibold shadow-xs hover:border-blue-300 transition-all cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!providerProfile?._id) {
+                        triggerNotice("Kitchen profile not loaded. Please set up your business profile first.");
+                        return;
+                      }
+                      setPreviewModalOpen(true);
+                    }}
+                    title="Live customer preview of your kitchen showcase"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200/90 rounded-2xl text-xs font-semibold shadow-xs hover:border-emerald-300 transition-all cursor-pointer"
                   >
-                    <span>View public profile</span>
+                    <span>Preview Public Kitchen</span>
                     <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
-                  </Link>
+                  </button>
                 </div>
               </div>
 
@@ -354,6 +398,14 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
           )}
         </main>
       </div>
+
+      {/* Live Public Customer Showcase Preview Modal */}
+      {previewModalOpen && (
+        <KitchenDetailModal
+          kitchenId={providerProfile?._id}
+          onClose={() => setPreviewModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

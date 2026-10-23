@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Menu,
@@ -8,12 +8,14 @@ import {
   LogOut,
   ChefHat,
   Calendar,
+  LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const {
     user,
     isCustomer,
@@ -23,6 +25,22 @@ export default function Navbar() {
     logoutCustomer,
     logoutProvider,
   } = useAuth();
+
+  const handleCustomerLogout = async () => {
+    try {
+      await logoutCustomer();
+    } finally {
+      navigate("/");
+    }
+  };
+
+  const handleProviderLogout = async () => {
+    try {
+      await logoutProvider();
+    } finally {
+      navigate("/");
+    }
+  };
 
   const isHome =
     location.pathname === "/" && (!location.hash || location.hash === "#");
@@ -98,7 +116,7 @@ export default function Navbar() {
                   Explore Tiffins
                 </a>
                 <Link
-                  to="/customer/dashboard"
+                  to="/customer/dashboard?tab=subscriptions"
                   className={
                     isCustomerPortal
                       ? "text-sm font-bold text-blue-600 relative py-1 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-blue-600 after:rounded-full flex items-center gap-1.5"
@@ -125,7 +143,7 @@ export default function Navbar() {
                   </Link>
                   <button
                     type="button"
-                    onClick={logoutCustomer}
+                    onClick={handleCustomerLogout}
                     className="text-xs font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"
                     title="Log out"
                   >
@@ -155,7 +173,7 @@ export default function Navbar() {
                   </div>
                   <button
                     type="button"
-                    onClick={logoutProvider}
+                    onClick={handleProviderLogout}
                     className="text-xs font-medium text-slate-500 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"
                     title="Log out"
                   >
@@ -186,11 +204,11 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             {isCustomer && user ? (
               <Link
-                to="/customer/dashboard"
+                to="/customer/dashboard?tab=overview"
                 className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               >
-                <Calendar className="w-4 h-4" />
-                <span>My Subscriptions</span>
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             ) : isProvider && user ? (
@@ -264,7 +282,7 @@ export default function Navbar() {
           {isCustomer && user ? (
             <div className="py-2 pl-3 space-y-2 border-t border-slate-100">
               <Link
-                to="/customer/dashboard"
+                to="/customer/dashboard?tab=subscriptions"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-2 text-sm py-1 ${
                   isCustomerPortal
@@ -281,8 +299,8 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => {
-                  logoutCustomer();
                   setMobileMenuOpen(false);
+                  handleCustomerLogout();
                 }}
                 className="text-sm font-medium text-red-500 hover:text-red-700 flex items-center gap-2 py-1 cursor-pointer"
               >
@@ -299,8 +317,8 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => {
-                  logoutProvider();
                   setMobileMenuOpen(false);
+                  handleProviderLogout();
                 }}
                 className="text-sm font-medium text-red-500 hover:text-red-700 flex items-center gap-2 py-1 cursor-pointer"
               >
@@ -325,12 +343,12 @@ export default function Navbar() {
           <div className="pt-2">
             {isCustomer && user ? (
               <Link
-                to="/customer/dashboard"
+                to="/customer/dashboard?tab=overview"
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-full shadow-md shadow-blue-600/20 cursor-pointer"
               >
-                <Calendar className="w-4 h-4" />
-                <span>My Subscriptions</span>
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             ) : isProvider && user ? (

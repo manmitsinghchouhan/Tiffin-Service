@@ -48,6 +48,44 @@ const userSchema = new mongoose.Schema(
       },
       default: "ACTIVE",
     },
+    addresses: [
+      {
+        label: {
+          type: String,
+          default: "Home",
+          trim: true,
+        },
+        street: {
+          type: String,
+          required: [true, "Street address is required"],
+          trim: true,
+        },
+        city: {
+          type: String,
+          required: [true, "City is required"],
+          trim: true,
+        },
+        postalCode: {
+          type: String,
+          default: "",
+          trim: true,
+        },
+        landmark: {
+          type: String,
+          default: "",
+          trim: true,
+        },
+        contactPhone: {
+          type: String,
+          default: "",
+          trim: true,
+        },
+        isDefault: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
