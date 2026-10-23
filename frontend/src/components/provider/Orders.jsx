@@ -191,6 +191,16 @@ export default function Orders({ onNavigateToPlans, onToast }) {
       });
       if (res.data?.success && res.data?.data) {
         setDispatchData(res.data.data);
+        const serverStatus = {};
+        (res.data.data.dispatchList || []).forEach((item) => {
+          if (item.deliveryStatus) {
+            serverStatus[item._id] = item.deliveryStatus;
+          }
+        });
+        setLocalDispatchStatus((prev) => ({
+          ...prev,
+          ...serverStatus,
+        }));
       }
     } catch (err) {
       console.error("Failed to load daily dispatch:", err);
@@ -299,15 +309,14 @@ export default function Orders({ onNavigateToPlans, onToast }) {
     }
   };
 
-  // Toggle local dispatch progress pill (Preparing -> Out for Delivery -> Delivered)
-  const handleToggleDispatchProgress = (id) => {
+  // Toggle dispatch progress pill (Preparing -> Out for Delivery -> Delivered)
+  const handleToggleDispatchProgress = async (id) => {
     const current = localDispatchStatus[id] || "PREPARING";
-    const next =
-      current === "PREPARING"
-        ? "OUT_FOR_DELIVERY"
-        : current === "OUT_FOR_DELIVERY"
-        ? "DELIVERED"
-        : "PREPARING";
+    if (current === "DELIVERED") {
+      if (onToast) onToast("Meal has already been marked delivered for today!");
+      return;
+    }
+    const next = current === "PREPARING" ? "OUT_FOR_DELIVERY" : "DELIVERED";
 
     const updated = {
       ...localDispatchStatus,
@@ -323,6 +332,25 @@ export default function Orders({ onNavigateToPlans, onToast }) {
       );
     } catch (e) {
       console.warn("Failed to persist dispatch status to storage:", e);
+    }
+
+    try {
+      await api.patch(`/provider/orders/dispatch-status/${id}`, {
+        status: next,
+        date: dispatchDate,
+      });
+      if (onToast) {
+        const stageLabel =
+          next === "OUT_FOR_DELIVERY"
+            ? "🛵 Out for Delivery"
+            : next === "DELIVERED"
+            ? "🍱 Delivered"
+            : "🍳 Cooking / Packing";
+        onToast(`Meal progress updated to ${stageLabel}. Customer can see this live!`);
+      }
+    } catch (err) {
+      console.error("Failed to update dispatch status in backend:", err);
+      if (onToast) onToast("Failed to sync dispatch status with server.");
     }
   };
 
@@ -907,25 +935,26 @@ export default function Orders({ onNavigateToPlans, onToast }) {
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                 <span>⏸️ Customer Paused</span>
                               </span>
+                            ) : dispatchStage === "DELIVERED" ? (
+                              <span
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs select-none"
+                                title="Meal delivery completed for today"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Delivered ✓ 🍱</span>
+                              </span>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => handleToggleDispatchProgress(item._id)}
                                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer shadow-2xs ${
-                                  dispatchStage === "DELIVERED"
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
-                                    : dispatchStage === "OUT_FOR_DELIVERY"
+                                  dispatchStage === "OUT_FOR_DELIVERY"
                                     ? "bg-purple-50 text-purple-700 border border-purple-300 hover:bg-purple-100"
                                     : "bg-blue-50 text-blue-700 border border-blue-300 hover:bg-blue-100"
                                 }`}
                                 title="Click to advance delivery progress"
                               >
-                                {dispatchStage === "DELIVERED" ? (
-                                  <>
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Delivered ✓</span>
-                                  </>
-                                ) : dispatchStage === "OUT_FOR_DELIVERY" ? (
+                                {dispatchStage === "OUT_FOR_DELIVERY" ? (
                                   <>
                                     <Truck className="w-3.5 h-3.5 text-purple-600" />
                                     <span>Out for Delivery ➔</span>

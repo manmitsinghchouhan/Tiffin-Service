@@ -18,6 +18,15 @@ import {
   Phone,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import {
+  sanitizeName,
+  sanitizePhone,
+  validateName,
+  validatePhone,
+  validateEmail,
+  validatePassword,
+  validateConfirmPassword,
+} from "../utils/formValidation";
 
 export default function ProviderAuth({ initialMode = "register" }) {
   const navigate = useNavigate();
@@ -46,10 +55,19 @@ export default function ProviderAuth({ initialMode = "register" }) {
   const [successMessage, setSuccessMessage] = useState("");
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    let sanitizedValue = value;
+
+    if (name === "fullName") {
+      sanitizedValue = sanitizeName(value);
+    } else if (name === "phone") {
+      sanitizedValue = sanitizePhone(value);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: sanitizedValue,
+    }));
     if (error) setError("");
   };
 
@@ -72,21 +90,26 @@ export default function ProviderAuth({ initialMode = "register" }) {
 
     try {
       if (mode === "register") {
-        // Validation
-        if (formData.password !== formData.confirmPassword) {
-          throw new Error("Password and confirm password do not match");
-        }
+        const nameErr = validateName(formData.fullName);
+        if (nameErr) throw new Error(nameErr);
 
-        if (formData.password.length < 6) {
-          throw new Error("Password must be at least 6 characters long");
-        }
+        const phoneErr = validatePhone(formData.phone);
+        if (phoneErr) throw new Error(phoneErr);
+
+        const emailErr = validateEmail(formData.email);
+        if (emailErr) throw new Error(emailErr);
+
+        const passErr = validatePassword(formData.password);
+        if (passErr) throw new Error(passErr);
+
+        const matchErr = validateConfirmPassword(formData.password, formData.confirmPassword);
+        if (matchErr) throw new Error(matchErr);
 
         // Call registerProvider (POST /api/provider/register)
-        // Automatically creates user with role 'PROVIDER' and sets 'providerToken' HTTP-only cookie
         const res = await registerProvider({
-          fullName: formData.fullName,
-          email: formData.email,
-          phone: formData.phone,
+          fullName: formData.fullName.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
           password: formData.password,
           confirmPassword: formData.confirmPassword,
         });
@@ -100,8 +123,12 @@ export default function ProviderAuth({ initialMode = "register" }) {
           navigate("/provider/onboarding");
         }, 600);
       } else {
+        const emailErr = validateEmail(formData.email);
+        if (emailErr) throw new Error(emailErr);
+        if (!formData.password) throw new Error("Password is required.");
+
         // Provider Login (POST /api/provider/login)
-        const res = await loginProvider(formData.email, formData.password);
+        const res = await loginProvider(formData.email.trim(), formData.password);
         const stage = res.data?.stage;
 
         setSuccessMessage("Logged in successfully! Redirecting...");
@@ -246,9 +273,11 @@ export default function ProviderAuth({ initialMode = "register" }) {
                       type="text"
                       name="fullName"
                       required
+                      maxLength={50}
+                      autoComplete="name"
                       value={formData.fullName}
                       onChange={handleChange}
-                      placeholder="e.g. Ramesh Patel"
+                      placeholder="e.g. Ramesh Patel (letters only)"
                       className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm"
                     />
                     <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -265,6 +294,10 @@ export default function ProviderAuth({ initialMode = "register" }) {
                       type="tel"
                       name="phone"
                       required
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="tel"
                       value={formData.phone}
                       onChange={handleChange}
                       placeholder="e.g. 9876543210"

@@ -8,6 +8,7 @@ import {
   Plus,
   AlertCircle
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function EditMealModal({
   isOpen,
@@ -18,6 +19,9 @@ export default function EditMealModal({
   onUpdateMeal,
   onOpenAddItem,
 }) {
+  const { providerProfile } = useAuth();
+  const kitchenFoodType = providerProfile?.foodType || 'BOTH';
+
   const [timing, setTiming] = useState('');
   const [items, setItems] = useState([]);
 
@@ -41,6 +45,7 @@ export default function EditMealModal({
   };
 
   const handleItemDietToggle = (idx) => {
+    if (kitchenFoodType !== 'BOTH') return; // Locked if VEG or NON_VEG
     setItems((prev) => {
       const copy = [...prev];
       copy[idx].diet = copy[idx].diet === 'Veg' ? 'Non-Veg' : 'Veg';
@@ -53,9 +58,21 @@ export default function EditMealModal({
   };
 
   const handleSave = () => {
+    const sanitizedItems = items
+      .filter((it) => it.name.trim() !== '')
+      .map((it) => ({
+        ...it,
+        diet:
+          kitchenFoodType === 'VEG'
+            ? 'Veg'
+            : kitchenFoodType === 'NON_VEG'
+            ? 'Non-Veg'
+            : it.diet,
+      }));
+
     onUpdateMeal(day, mealType, {
       timing: timing.trim(),
-      items: items.filter((it) => it.name.trim() !== ''),
+      items: sanitizedItems,
     });
     onClose();
   };
@@ -155,19 +172,31 @@ export default function EditMealModal({
                       />
                     </div>
 
-                    {/* Veg / Non-Veg Toggle */}
-                    <button
-                      type="button"
-                      onClick={() => handleItemDietToggle(idx)}
-                      title="Click to toggle Veg / Non-Veg"
-                      className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
-                        item.diet === 'Veg'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      {item.diet === 'Veg' ? '🌱 Veg' : '🍗 Non-Veg'}
-                    </button>
+                    {/* Veg / Non-Veg Toggle or Locked Badge */}
+                    {kitchenFoodType === 'BOTH' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleItemDietToggle(idx)}
+                        title="Click to toggle Veg / Non-Veg"
+                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer ${
+                          item.diet === 'Veg'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                        }`}
+                      >
+                        {item.diet === 'Veg' ? '🌱 Veg' : '🍗 Non-Veg'}
+                      </button>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${
+                          item.diet === 'Veg'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {item.diet === 'Veg' ? '🌱 Veg' : '🍗 Non-Veg'}
+                      </span>
+                    )}
 
                     {/* Delete Item Button */}
                     <button

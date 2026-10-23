@@ -18,7 +18,7 @@ export default function ProviderHeader({ onOpenMobile, onTriggerNotice, onPrevie
   const kitchenName = providerProfile?.businessName || user?.name || 'Green Bowl Kitchen';
   const avatarUrl =
     providerProfile?.imageUrl ||
-    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&auto=format&fit=crop&q=80';
+    '/tiffin-hub-logo.svg';
 
   return (
     <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">

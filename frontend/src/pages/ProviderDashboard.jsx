@@ -27,6 +27,7 @@ import Subscriptions from '../components/provider/Subscriptions';
 import Customers from '../components/provider/Customers';
 import BusinessProfile from '../components/provider/BusinessProfile';
 import Settings from '../components/provider/Settings';
+import Feedback from '../components/provider/Feedback';
 import KitchenDetailModal from '../components/KitchenDetailModal';
 
 export default function ProviderDashboard({ initialTab = 'overview' }) {
@@ -162,14 +163,14 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
       tabId === 'subscriptions' ||
       tabId === 'customers' ||
       tabId === 'profile' ||
-      tabId === 'settings'
+      tabId === 'settings' ||
+      tabId === 'feedback'
     ) {
       setActiveTab(tabId);
     } else {
       setActiveTab(tabId);
       const tabNames = {
         'payments': 'Payments & Earnings',
-        'feedback': 'Feedback & Complaints',
       };
       triggerNotice(
         `${tabNames[tabId] || tabId} module will be connected in future steps.`
@@ -280,6 +281,8 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
               onToast={triggerNotice}
               onNavigateToProfile={() => setActiveTab('profile')}
             />
+          ) : activeTab === 'feedback' ? (
+            <Feedback onToast={triggerNotice} />
           ) : activeTab === 'overview' ? (
             <>
               {/* Top Greeting Headline matching Image 1 */}

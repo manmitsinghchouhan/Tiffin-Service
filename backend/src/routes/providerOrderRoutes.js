@@ -5,6 +5,7 @@ import {
   getProviderOrders,
   getProviderOrderById,
   updateProviderOrderStatus,
+  updateSubscriptionDispatchStatus,
 } from "../controllers/providerOrderController.js";
 import { authenticate, isProvider } from "../middleware/authMiddleware.js";
 
@@ -18,6 +19,7 @@ router.get("/stats", getProviderOrderStats);
 
 // Daily Kitchen Run-Sheet & Dispatch Engine
 router.get("/daily-dispatch", getProviderDailyDispatch);
+router.patch("/dispatch-status/:subscriptionId", updateSubscriptionDispatchStatus);
 
 // Commercial orders list with search, filter, and pagination
 router.get("/", getProviderOrders);

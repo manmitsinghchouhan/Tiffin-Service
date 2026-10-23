@@ -111,6 +111,8 @@ export const getPublicKitchens = asyncHandler(async (req, res) => {
 
     return {
       ...k,
+      rating: typeof k.rating === "number" ? k.rating : 0,
+      reviewsCount: typeof k.reviewsCount === "number" ? k.reviewsCount : 0,
       plansCount: plans.length,
       startingPrice,
       startingPlanDuration,

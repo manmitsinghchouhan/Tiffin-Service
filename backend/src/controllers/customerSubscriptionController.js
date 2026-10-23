@@ -327,22 +327,52 @@ export const getCustomerSubscriptions = asyncHandler(async (req, res) => {
 
   const now = new Date();
 
-  // Enforce dynamic status updates & enrich remaining days
-  const enrichedSubscriptions = subscriptions.map((sub) => {
-    const subObj = sub.toObject();
-    const end = new Date(sub.endDate);
-    const diffMs = end - now;
-    const remainingDays =
-      sub.status === "ACTIVE"
+  // Enforce dynamic status updates & enrich remaining days & backfill deliveryHistory
+  const enrichedSubscriptions = await Promise.all(
+    subscriptions.map(async (sub) => {
+      // Auto-backfill deliveryHistory if todayDispatchStatus is DELIVERED but not yet in deliveryHistory
+      if (
+        sub.todayDispatchStatus?.status === "DELIVERED" &&
+        sub.todayDispatchStatus?.date
+      ) {
+        if (!sub.deliveryHistory) sub.deliveryHistory = [];
+        const alreadyLogged = sub.deliveryHistory.some(
+          (entry) =>
+            entry.date === sub.todayDispatchStatus.date &&
+            entry.status === "DELIVERED"
+        );
+        if (!alreadyLogged) {
+          sub.deliveryHistory.push({
+            date: sub.todayDispatchStatus.date,
+            deliveredAt: sub.todayDispatchStatus.updatedAt || new Date(),
+            mealType: sub.planSnapshot?.mealType || "LUNCH",
+            status: "DELIVERED",
+            deliveryAddress: sub.deliveryAddress,
+            notes: sub.notes || "",
+          });
+          try {
+            await sub.save();
+          } catch (saveErr) {
+            console.warn("Auto-sync deliveryHistory save error:", saveErr);
+          }
+        }
+      }
+
+      const subObj = sub.toObject();
+      const end = new Date(sub.endDate);
+      const diffMs = end - now;
+      const isOngoing = sub.status === "ACTIVE" || sub.status === "PAUSED";
+      const remainingDays = isOngoing
         ? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
         : 0;
 
-    return {
-      ...subObj,
-      remainingDays,
-      isExpiringSoon: sub.status === "ACTIVE" && remainingDays <= 3,
-    };
-  });
+      return {
+        ...subObj,
+        remainingDays,
+        isExpiringSoon: sub.status === "ACTIVE" && remainingDays <= 3,
+      };
+    })
+  );
 
   res.status(200).json({
     success: true,
@@ -374,10 +404,10 @@ export const getSubscriptionById = asyncHandler(async (req, res) => {
   const now = new Date();
   const end = new Date(subscription.endDate);
   const diffMs = end - now;
-  const remainingDays =
-    subscription.status === "ACTIVE"
-      ? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
-      : 0;
+  const isOngoing = subscription.status === "ACTIVE" || subscription.status === "PAUSED";
+  const remainingDays = isOngoing
+    ? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+    : 0;
 
   res.status(200).json({
     success: true,

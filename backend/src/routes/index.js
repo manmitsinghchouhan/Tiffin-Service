@@ -12,6 +12,7 @@ import providerSettingsRoutes from "./providerSettingsRoutes.js";
 import publicKitchenRoutes from "./publicKitchenRoutes.js";
 import customerSubscriptionRoutes from "./customerSubscriptionRoutes.js";
 import customerAddressRoutes from "./customerAddressRoutes.js";
+import feedbackRoutes from "./feedbackRoutes.js";
 
 const router = Router();
 
@@ -63,8 +64,7 @@ router.use("/providers", publicKitchenRoutes);
 // router.use("/providers", providerRoutes);
 // router.use("/plans", planRoutes);
 // router.use("/menus", menuRoutes);
-// router.use("/orders", orderRoutes);
-// router.use("/payments", paymentRoutes);
-// router.use("/feedback", feedbackRoutes);
+// Customer & Provider Feedback & Reviews
+router.use("/feedback", feedbackRoutes);
 
 export default router;

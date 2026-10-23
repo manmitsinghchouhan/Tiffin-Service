@@ -19,18 +19,15 @@ import {
   ShieldCheck,
   Phone,
   AlertCircle,
-  Loader2
+  Loader2,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-// Curated high quality Indian cuisine image fallbacks
-const FALLBACK_BANNERS = [
-  'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=1000&q=80',
-  'https://images.unsplash.com/photo-1610057099443-fde8c4d50f91?auto=format&fit=crop&w=1000&q=80',
-  'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=1000&q=80',
-  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=1000&q=80'
-];
+// Official TiffinHub default brand cover
+const TIFFIN_HUB_DEFAULT_IMAGE = '/tiffin-hub-logo.svg';
 
 const DISH_THUMBNAILS = {
   poha: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=200&q=80',
@@ -57,7 +54,7 @@ const DAY_SHORT = {
 };
 
 export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan }) {
-  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'plans'
+  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'plans' | 'reviews'
   const [selectedDay, setSelectedDay] = useState('Monday');
   const [selectedMealFilter, setSelectedMealFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('recommended');
@@ -69,6 +66,16 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
 
   const { user, isCustomer } = useAuth();
   const [customerSubs, setCustomerSubs] = useState([]);
+
+  // Feedback & Reviews State
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [customerRating, setCustomerRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState(null);
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   // Fetch logged-in customer's subscriptions to detect pending or active plans
   useEffect(() => {
@@ -115,6 +122,78 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
     };
   }, [kitchenId]);
 
+  // Fetch kitchen reviews
+  const fetchKitchenReviews = async () => {
+    if (!kitchenId) return;
+    setLoadingReviews(true);
+    try {
+      const res = await api.get(`/feedback/kitchen/${kitchenId}`);
+      if (res.data?.success) {
+        setReviews(res.data.data.reviews || []);
+      }
+    } catch (err) {
+      console.error('Failed to load reviews:', err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  useEffect(() => {
+    if (kitchenId && activeTab === 'reviews') {
+      fetchKitchenReviews();
+    }
+  }, [kitchenId, activeTab]);
+
+  // Fetch customer's own review if logged in
+  useEffect(() => {
+    if (kitchenId && user && isCustomer) {
+      api.get(`/feedback/my-review/${kitchenId}`)
+        .then((res) => {
+          if (res.data?.success && res.data.data) {
+            setCustomerRating(res.data.data.rating || 5);
+            setReviewText(res.data.data.review || '');
+            setHasReviewed(true);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [kitchenId, user, isCustomer]);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!user || !isCustomer) return;
+    setSubmittingReview(true);
+    setReviewMessage(null);
+    try {
+      const res = await api.post('/feedback', {
+        providerId: kitchenId,
+        rating: customerRating,
+        review: reviewText,
+      });
+      if (res.data?.success) {
+        setReviewMessage({ type: 'success', text: 'Thank you! Your rating and feedback have been saved.' });
+        setHasReviewed(true);
+        fetchKitchenReviews();
+        // Update local kitchen rating & review count live
+        if (data?.kitchen) {
+          setData({
+            ...data,
+            kitchen: {
+              ...data.kitchen,
+              rating: res.data.data.kitchenRating,
+              reviewsCount: res.data.data.kitchenReviewsCount,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Submit review error:', err);
+      setReviewMessage({ type: 'error', text: err.message || 'Failed to submit review' });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   // Lock body scroll while modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -139,7 +218,7 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
   // Banner image with fallback
   const bannerImg = kitchen?.imageUrl && kitchen.imageUrl.trim().length > 5
     ? kitchen.imageUrl
-    : FALLBACK_BANNERS[Math.abs(String(kitchenId).charCodeAt(0)) % FALLBACK_BANNERS.length];
+    : TIFFIN_HUB_DEFAULT_IMAGE;
 
   // Filter and sort plans for Tab 2
   const filteredPlans = plans.filter((plan) => {
@@ -192,33 +271,17 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
     return 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=200&q=80';
   };
 
-  // Default dishes fallback if kitchen menu is empty for that day
-  const getDefaultDishes = (mealCategory) => {
-    if (mealCategory === 'breakfast') {
-      return [
-        { name: 'Poha', description: 'With roasted peanuts & fresh coriander' },
-        { name: 'Fruit Bowl', description: 'Fresh seasonal fruits' },
-        { name: 'Masala Chai', description: 'Freshly brewed home-style chai' },
-        { name: 'Boiled Egg (Optional)', description: 'Available on request' }
-      ];
-    }
-    if (mealCategory === 'lunch') {
-      return [
-        { name: 'Dal Tadka', description: 'Slow-cooked yellow lentils with cumin tadka' },
-        { name: 'Steamed Rice', description: 'Long grain fragrant basmati rice' },
-        { name: '4 Phulkas', description: 'Hot, soft whole wheat phulkas with ghee' },
-        { name: 'Seasonal Sabzi', description: 'Fresh seasonal vegetable preparation' },
-        { name: 'Salad', description: 'Cucumber, carrot, onion & lemon' }
-      ];
-    }
-    return [
-      { name: 'Paneer Curry', description: 'Cottage cheese in rich tomato gravy' },
-      { name: 'Jeera Rice', description: 'Aromatic cumin spiced basmati' },
-      { name: 'Roti', description: 'Fresh whole wheat rotis' },
-      { name: 'Mix Veg', description: 'Tender garden vegetables sautéed with mild spices' },
-      { name: 'Curd', description: 'Fresh homemade chilled curd' }
-    ];
-  };
+  // Total dishes configured across the entire week
+  const totalWeeklyDishesCount = DAYS.reduce((acc, d) => {
+    const day = weeklyMenu[d];
+    if (!day) return acc;
+    return (
+      acc +
+      (day.breakfast?.items?.length || 0) +
+      (day.lunch?.items?.length || 0) +
+      (day.dinner?.items?.length || 0)
+    );
+  }, 0);
 
   const isPaused =
     kitchen?.isAcceptingOrders === false || kitchen?.operatingStatus === 'BUSY';
@@ -292,10 +355,13 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
               <div className="space-y-6">
                 
                 {/* Kitchen Banner Photo */}
-                <div className="relative rounded-2xl overflow-hidden aspect-[16/10] bg-slate-200 shadow-md group">
+                <div className="relative rounded-2xl overflow-hidden aspect-[16/10] bg-slate-900 shadow-md group">
                   <img
                     src={bannerImg}
                     alt={kitchen.businessName}
+                    onError={(e) => {
+                      e.target.src = TIFFIN_HUB_DEFAULT_IMAGE;
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
@@ -333,9 +399,17 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                       <div className="flex items-center gap-2 mt-0.5">
                         <div className="flex items-center text-amber-500 font-bold text-xs gap-1">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span>4.8</span>
+                          <span>
+                            {kitchen.reviewsCount > 0
+                              ? Number(kitchen.rating || 0).toFixed(1)
+                              : 'New'}
+                          </span>
                         </div>
-                        <span className="text-slate-400 text-xs font-medium">(120 reviews)</span>
+                        {kitchen.reviewsCount > 0 && (
+                          <span className="text-slate-400 text-xs font-medium">
+                            ({kitchen.reviewsCount} {kitchen.reviewsCount === 1 ? 'review' : 'reviews'})
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -516,12 +590,39 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                     {plans.length}
                   </span>
                 </button>
+
+                {/* Tab 3: Customer Reviews */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reviews')}
+                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                    activeTab === 'reviews'
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  <span>Reviews & Ratings</span>
+                  {kitchen.reviewsCount > 0 && (
+                    <span className="text-[11px] bg-amber-100 text-amber-700 font-extrabold px-2 py-0.5 rounded-full ml-1">
+                      {kitchen.reviewsCount}
+                    </span>
+                  )}
+                </button>
               </div>
 
               {/* TAB 1: WEEKLY MENU CONTENT */}
               {activeTab === 'menu' && (
                 <div className="space-y-6 animate-fadeIn">
                   
+                  {/* Notice if kitchen has not configured weekly menu yet */}
+                  {totalWeeklyDishesCount === 0 && (
+                    <div className="flex items-center gap-3 p-3.5 bg-blue-50/80 border border-blue-100 rounded-2xl text-blue-800 text-xs sm:text-sm">
+                      <AlertCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>This kitchen has not published their weekly menu online yet. Please check their active <strong>Tiffin Plans</strong> below.</span>
+                    </div>
+                  )}
+
                   {/* 7-Days Selector Pills */}
                   <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
                     {DAYS.map((day) => {
@@ -564,30 +665,48 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
 
                       {/* Dishes List */}
                       <div className="space-y-2.5">
-                        {(dayMenu.breakfast?.items && dayMenu.breakfast.items.length > 0
-                          ? dayMenu.breakfast.items
-                          : getDefaultDishes('breakfast')
-                        ).map((dish, i) => (
-                          <div key={i} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-amber-100/70 shadow-2xs">
-                            <img
-                              src={getDishThumbnail(dish)}
-                              alt={typeof dish === 'string' ? dish : dish.name}
-                              className="w-10 h-10 rounded-lg object-cover shrink-0"
-                              onError={(e) => {
-                                e.target.src =
-                                  'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=200&q=80';
-                              }}
-                            />
-                            <div className="overflow-hidden">
-                              <p className="text-xs font-bold text-slate-800 truncate">
-                                {typeof dish === 'string' ? dish : dish.name}
-                              </p>
-                              {typeof dish === 'object' && dish.description && (
-                                <p className="text-[10px] text-slate-400 truncate">{dish.description}</p>
-                              )}
+                        {dayMenu.breakfast?.items && dayMenu.breakfast.items.length > 0 ? (
+                          dayMenu.breakfast.items.map((dish, i) => (
+                            <div key={i} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-amber-100/70 shadow-2xs">
+                              <img
+                                src={getDishThumbnail(dish)}
+                                alt={typeof dish === 'string' ? dish : dish.name}
+                                className="w-10 h-10 rounded-lg object-cover shrink-0"
+                                onError={(e) => {
+                                  e.target.src =
+                                    'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=200&q=80';
+                                }}
+                              />
+                              <div className="overflow-hidden">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-bold text-slate-800 truncate">
+                                    {typeof dish === 'string' ? dish : dish.name}
+                                  </p>
+                                  {typeof dish === 'object' && dish.diet && (
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                      dish.diet === 'Veg'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-red-50 text-red-700 border border-red-200'
+                                    }`}>
+                                      {dish.diet}
+                                    </span>
+                                  )}
+                                </div>
+                                {typeof dish === 'object' && dish.description && (
+                                  <p className="text-[10px] text-slate-400 truncate">{dish.description}</p>
+                                )}
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-7 px-3 text-center border border-dashed border-amber-200/90 rounded-xl bg-white/70">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-1.5">
+                              <Coffee className="w-4 h-4 opacity-75" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-700">No items scheduled</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Not serving breakfast on {selectedDay}</p>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
 
@@ -609,30 +728,48 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
 
                       {/* Dishes List */}
                       <div className="space-y-2.5">
-                        {(dayMenu.lunch?.items && dayMenu.lunch.items.length > 0
-                          ? dayMenu.lunch.items
-                          : getDefaultDishes('lunch')
-                        ).map((dish, i) => (
-                          <div key={i} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-emerald-100/70 shadow-2xs">
-                            <img
-                              src={getDishThumbnail(dish)}
-                              alt={typeof dish === 'string' ? dish : dish.name}
-                              className="w-10 h-10 rounded-lg object-cover shrink-0"
-                              onError={(e) => {
-                                e.target.src =
-                                  'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=200&q=80';
-                              }}
-                            />
-                            <div className="overflow-hidden">
-                              <p className="text-xs font-bold text-slate-800 truncate">
-                                {typeof dish === 'string' ? dish : dish.name}
-                              </p>
-                              {typeof dish === 'object' && dish.description && (
-                                <p className="text-[10px] text-slate-400 truncate">{dish.description}</p>
-                              )}
+                        {dayMenu.lunch?.items && dayMenu.lunch.items.length > 0 ? (
+                          dayMenu.lunch.items.map((dish, i) => (
+                            <div key={i} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-emerald-100/70 shadow-2xs">
+                              <img
+                                src={getDishThumbnail(dish)}
+                                alt={typeof dish === 'string' ? dish : dish.name}
+                                className="w-10 h-10 rounded-lg object-cover shrink-0"
+                                onError={(e) => {
+                                  e.target.src =
+                                    'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=200&q=80';
+                                }}
+                              />
+                              <div className="overflow-hidden">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-bold text-slate-800 truncate">
+                                    {typeof dish === 'string' ? dish : dish.name}
+                                  </p>
+                                  {typeof dish === 'object' && dish.diet && (
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                      dish.diet === 'Veg'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-red-50 text-red-700 border border-red-200'
+                                    }`}>
+                                      {dish.diet}
+                                    </span>
+                                  )}
+                                </div>
+                                {typeof dish === 'object' && dish.description && (
+                                  <p className="text-[10px] text-slate-400 truncate">{dish.description}</p>
+                                )}
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-7 px-3 text-center border border-dashed border-emerald-200/90 rounded-xl bg-white/70">
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-1.5">
+                              <Sun className="w-4 h-4 opacity-75" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-700">No items scheduled</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Not serving lunch on {selectedDay}</p>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
 
@@ -654,30 +791,48 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
 
                       {/* Dishes List */}
                       <div className="space-y-2.5">
-                        {(dayMenu.dinner?.items && dayMenu.dinner.items.length > 0
-                          ? dayMenu.dinner.items
-                          : getDefaultDishes('dinner')
-                        ).map((dish, i) => (
-                          <div key={i} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-purple-100/70 shadow-2xs">
-                            <img
-                              src={getDishThumbnail(dish)}
-                              alt={typeof dish === 'string' ? dish : dish.name}
-                              className="w-10 h-10 rounded-lg object-cover shrink-0"
-                              onError={(e) => {
-                                e.target.src =
-                                  'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=200&q=80';
-                              }}
-                            />
-                            <div className="overflow-hidden">
-                              <p className="text-xs font-bold text-slate-800 truncate">
-                                {typeof dish === 'string' ? dish : dish.name}
-                              </p>
-                              {typeof dish === 'object' && dish.description && (
-                                <p className="text-[10px] text-slate-400 truncate">{dish.description}</p>
-                              )}
+                        {dayMenu.dinner?.items && dayMenu.dinner.items.length > 0 ? (
+                          dayMenu.dinner.items.map((dish, i) => (
+                            <div key={i} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-purple-100/70 shadow-2xs">
+                              <img
+                                src={getDishThumbnail(dish)}
+                                alt={typeof dish === 'string' ? dish : dish.name}
+                                className="w-10 h-10 rounded-lg object-cover shrink-0"
+                                onError={(e) => {
+                                  e.target.src =
+                                    'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=200&q=80';
+                                }}
+                              />
+                              <div className="overflow-hidden">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-bold text-slate-800 truncate">
+                                    {typeof dish === 'string' ? dish : dish.name}
+                                  </p>
+                                  {typeof dish === 'object' && dish.diet && (
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                      dish.diet === 'Veg'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-red-50 text-red-700 border border-red-200'
+                                    }`}>
+                                      {dish.diet}
+                                    </span>
+                                  )}
+                                </div>
+                                {typeof dish === 'object' && dish.description && (
+                                  <p className="text-[10px] text-slate-400 truncate">{dish.description}</p>
+                                )}
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-7 px-3 text-center border border-dashed border-purple-200/90 rounded-xl bg-white/70">
+                            <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mb-1.5">
+                              <Moon className="w-4 h-4 opacity-75" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-700">No items scheduled</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Not serving dinner on {selectedDay}</p>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
 
@@ -759,7 +914,7 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
 
                         const planBanner = plan.imageUrl && plan.imageUrl.trim().length > 5
                           ? plan.imageUrl
-                          : FALLBACK_BANNERS[(index + 1) % FALLBACK_BANNERS.length];
+                          : (kitchen?.imageUrl && kitchen.imageUrl.trim().length > 5 ? kitchen.imageUrl : TIFFIN_HUB_DEFAULT_IMAGE);
 
                         return (
                           <div
@@ -924,6 +1079,223 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                       })}
                     </div>
                   )}
+
+                </div>
+              )}
+
+              {/* TAB 3: CUSTOMER REVIEWS & RATINGS */}
+              {activeTab === 'reviews' && (
+                <div className="space-y-6 animate-fadeIn">
+                  
+                  {/* Reviews Summary Header Card */}
+                  <div className="bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-slate-50 p-6 rounded-2xl border border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl bg-amber-500 text-white font-black text-2xl flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+                        {kitchen.reviewsCount > 0 ? Number(kitchen.rating || 0).toFixed(1) : '—'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-4 h-4 ${
+                                s <= Math.round(Number(kitchen.rating || 0))
+                                  ? 'fill-amber-400 text-amber-500'
+                                  : 'text-slate-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-900 mt-1">
+                          {kitchen.reviewsCount > 0
+                            ? 'Customer Satisfaction Rating'
+                            : 'No customer ratings yet'}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          {kitchen.reviewsCount > 0
+                            ? `Based on ${kitchen.reviewsCount} verified customer ${
+                                kitchen.reviewsCount === 1 ? 'review' : 'reviews'
+                              }`
+                            : 'Be the first subscriber to review this kitchen!'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Review Form (If Customer is Logged In) */}
+                  {user && isCustomer ? (
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">
+                            {hasReviewed ? 'Update Your Rating & Feedback' : 'Rate & Review This Kitchen'}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Share your honest culinary experience to help other subscribers.
+                          </p>
+                        </div>
+                        {hasReviewed && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Already Reviewed
+                          </span>
+                        )}
+                      </div>
+
+                      {reviewMessage && (
+                        <div
+                          className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                            reviewMessage.type === 'success'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-4 h-4 shrink-0" />
+                          <span>{reviewMessage.text}</span>
+                        </div>
+                      )}
+
+                      <form onSubmit={handleSubmitReview} className="space-y-3.5">
+                        {/* Interactive Star Picker */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Your Rating <span className="text-red-500">*</span>
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            {[1, 2, 3, 4, 5].map((star) => {
+                              const active = star <= (hoverRating || customerRating);
+                              return (
+                                <button
+                                  type="button"
+                                  key={star}
+                                  onClick={() => setCustomerRating(star)}
+                                  onMouseEnter={() => setHoverRating(star)}
+                                  onMouseLeave={() => setHoverRating(0)}
+                                  className="p-1 cursor-pointer transition-transform hover:scale-115 focus:outline-none"
+                                >
+                                  <Star
+                                    className={`w-6 h-6 transition-colors ${
+                                      active
+                                        ? 'fill-amber-400 text-amber-500'
+                                        : 'text-slate-300'
+                                    }`}
+                                  />
+                                </button>
+                              );
+                            })}
+                            <span className="text-xs font-bold text-slate-700 ml-2">
+                              {customerRating === 5
+                                ? '5.0 - Excellent 🌟'
+                                : customerRating === 4
+                                ? '4.0 - Very Good 👍'
+                                : customerRating === 3
+                                ? '3.0 - Average 😐'
+                                : customerRating === 2
+                                ? '2.0 - Poor 👎'
+                                : '1.0 - Terrible ⚠️'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Review text */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Your Feedback Review <span className="text-slate-400 font-normal">(Optional)</span>
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={reviewText}
+                            onChange={(e) => setReviewText(e.target.value)}
+                            placeholder="How is the food quality, taste, roti freshness, and delivery packaging?"
+                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={submittingReview}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
+                        >
+                          {submittingReview ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Send className="w-3.5 h-3.5" />
+                          )}
+                          <span>{hasReviewed ? 'Update My Review' : 'Submit Review'}</span>
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4 text-xs">
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <MessageSquare className="w-4 h-4 text-blue-600 shrink-0" />
+                        <span>Sign in as a customer to rate and review this kitchen.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Public Reviews List */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Recent Customer Reviews ({reviews.length})
+                    </h4>
+
+                    {loadingReviews ? (
+                      <div className="p-8 text-center bg-white rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-blue-600 animate-spin mb-2" />
+                        <span className="text-xs text-slate-400">Loading reviews...</span>
+                      </div>
+                    ) : reviews.length === 0 ? (
+                      <div className="p-8 text-center bg-white rounded-2xl border border-slate-100 text-xs text-slate-400">
+                        No reviews yet for this kitchen. Be the first to try their plans!
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {reviews.map((rev) => {
+                          const cName = rev.customerId?.name || 'Customer';
+                          const initial = cName.charAt(0).toUpperCase();
+                          const rDate = rev.createdAt
+                            ? new Date(rev.createdAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })
+                            : '';
+
+                          return (
+                            <div
+                              key={rev._id}
+                              className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-white font-extrabold text-xs flex items-center justify-center shrink-0">
+                                    {initial}
+                                  </div>
+                                  <div>
+                                    <h5 className="text-xs font-bold text-slate-900">{cName}</h5>
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      {rDate}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
+                                  <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
+                                  <span>{rev.rating}.0</span>
+                                </div>
+                              </div>
+
+                              {rev.review && (
+                                <p className="text-xs text-slate-700 leading-relaxed font-normal bg-slate-50/60 p-2.5 rounded-xl border border-slate-100">
+                                  "{rev.review}"
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
 
                 </div>
               )}

@@ -19,15 +19,8 @@ import KitchenDetailModal from './KitchenDetailModal';
 import SubscribeModal from './customer/SubscribeModal';
 import { useAuth } from '../context/AuthContext';
 
-// Curated high-resolution Indian food photography for realistic cards
-const KITCHEN_IMAGE_FALLBACKS = [
-  'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=800&q=80', // Veg Thali
-  'https://images.unsplash.com/photo-1610057099443-fde8c4d50f91?auto=format&fit=crop&w=800&q=80', // Paneer / Thali
-  'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80', // Home Thali
-  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80', // Biryani / Feast
-  'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=800&q=80', // Roti Sabzi
-  'https://images.unsplash.com/photo-1505253758473-96b3015f27eb?auto=format&fit=crop&w=800&q=80', // Fresh Curries
-];
+// Official TiffinHub default brand cover for kitchens without a custom image
+const TIFFIN_HUB_DEFAULT_IMAGE = '/tiffin-hub-logo.svg';
 
 export default function ExploreKitchens() {
   const navigate = useNavigate();
@@ -379,7 +372,7 @@ export default function ExploreKitchens() {
             {kitchens.map((kitchen, idx) => {
               const cardImage = kitchen.imageUrl && kitchen.imageUrl.trim().length > 5
                 ? kitchen.imageUrl
-                : KITCHEN_IMAGE_FALLBACKS[idx % KITCHEN_IMAGE_FALLBACKS.length];
+                : TIFFIN_HUB_DEFAULT_IMAGE;
 
               const isFav = !!favorites[kitchen._id];
 
@@ -390,10 +383,13 @@ export default function ExploreKitchens() {
                 >
                   <div>
                     {/* Top Banner Image with Badges */}
-                    <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
+                    <div className="relative aspect-[16/10] bg-slate-900 overflow-hidden">
                       <img
                         src={cardImage}
                         alt={kitchen.businessName}
+                        onError={(e) => {
+                          e.target.src = TIFFIN_HUB_DEFAULT_IMAGE;
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"
                       />
@@ -440,9 +436,18 @@ export default function ExploreKitchens() {
                               {kitchen.businessName}
                             </h3>
                             {/* Rating */}
-                            <div className="flex items-center text-amber-500 font-bold text-xs gap-0.5 shrink-0">
+                            <div className="flex items-center text-amber-500 font-bold text-xs gap-1 shrink-0">
                               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                              <span>4.8</span>
+                              <span>
+                                {kitchen.reviewsCount > 0
+                                  ? Number(kitchen.rating || 0).toFixed(1)
+                                  : 'New'}
+                              </span>
+                              {kitchen.reviewsCount > 0 && (
+                                <span className="text-[10px] text-slate-400 font-normal">
+                                  ({kitchen.reviewsCount})
+                                </span>
+                              )}
                             </div>
                           </div>
 

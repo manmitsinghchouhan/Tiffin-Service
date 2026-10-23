@@ -2,6 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, ArrowLeft, Loader2, CheckCircle2, Utensils } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import {
+  sanitizeName,
+  sanitizePhone,
+  validateName,
+  validatePhone,
+  validateEmail,
+  validatePassword,
+  validateConfirmPassword,
+} from '../utils/formValidation';
 
 export default function CustomerAuth({ initialMode = 'login' }) {
   const navigate = useNavigate();
@@ -28,10 +37,19 @@ export default function CustomerAuth({ initialMode = 'login' }) {
   const [successMessage, setSuccessMessage] = useState('');
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    let sanitizedValue = value;
+
+    if (name === 'fullName') {
+      sanitizedValue = sanitizeName(value);
+    } else if (name === 'phone') {
+      sanitizedValue = sanitizePhone(value);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: sanitizedValue,
+    }));
     if (error) setError('');
   };
 
@@ -53,8 +71,12 @@ export default function CustomerAuth({ initialMode = 'login' }) {
 
     try {
       if (mode === 'login') {
+        const emailErr = validateEmail(formData.email);
+        if (emailErr) throw new Error(emailErr);
+        if (!formData.password) throw new Error('Password is required.');
+
         // Customer Login via AuthContext (stores user in React Context, sets cookie via backend)
-        await loginCustomer(formData.email, formData.password);
+        await loginCustomer(formData.email.trim(), formData.password);
 
         setSuccessMessage('Logged in successfully! Redirecting...');
         setTimeout(() => {
@@ -71,19 +93,26 @@ export default function CustomerAuth({ initialMode = 'login' }) {
           }
         }, 800);
       } else {
-        // Customer Registration via AuthContext
-        if (formData.password !== formData.confirmPassword) {
-          throw new Error('Password and confirm password do not match');
-        }
+        // Customer Registration Validations
+        const nameErr = validateName(formData.fullName);
+        if (nameErr) throw new Error(nameErr);
 
-        if (formData.password.length < 6) {
-          throw new Error('Password must be at least 6 characters long');
-        }
+        const phoneErr = validatePhone(formData.phone);
+        if (phoneErr) throw new Error(phoneErr);
+
+        const emailErr = validateEmail(formData.email);
+        if (emailErr) throw new Error(emailErr);
+
+        const passErr = validatePassword(formData.password);
+        if (passErr) throw new Error(passErr);
+
+        const matchErr = validateConfirmPassword(formData.password, formData.confirmPassword);
+        if (matchErr) throw new Error(matchErr);
 
         const data = await registerCustomer({
-          fullName: formData.fullName,
-          email: formData.email,
-          phone: formData.phone,
+          fullName: formData.fullName.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
           password: formData.password,
           confirmPassword: formData.confirmPassword,
         });
@@ -199,9 +228,11 @@ export default function CustomerAuth({ initialMode = 'login' }) {
                     type="text"
                     name="fullName"
                     required
+                    maxLength={50}
+                    autoComplete="name"
                     value={formData.fullName}
                     onChange={handleChange}
-                    placeholder="Enter your full name"
+                    placeholder="Enter your full name (letters only)"
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
                   />
                 </div>
@@ -215,6 +246,10 @@ export default function CustomerAuth({ initialMode = 'login' }) {
                     type="tel"
                     name="phone"
                     required
+                    maxLength={10}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="tel"
                     value={formData.phone}
                     onChange={handleChange}
                     placeholder="Enter your 10-digit phone number"

@@ -13,6 +13,7 @@ import {
   Link2
 } from 'lucide-react';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const FEATURE_SUGGESTIONS = [
   '4 Phulkas / Rotis',
@@ -69,13 +70,31 @@ export default function PlanFormModal({
   onToast
 }) {
   const isEdit = Boolean(planToEdit && planToEdit._id);
+  const { providerProfile } = useAuth();
+  const kitchenFoodType = (providerProfile?.foodType || 'BOTH').toUpperCase();
+
+  // Filter presets based on kitchen onboarding food type
+  const availablePresetImages = PLAN_PRESET_IMAGES.filter((preset) => {
+    if (kitchenFoodType === 'VEG') return preset.type === 'Veg';
+    if (kitchenFoodType === 'NON_VEG') return preset.type === 'Non-Veg';
+    return true;
+  });
+
+  const availableFeatureSuggestions = FEATURE_SUGGESTIONS.filter((sug) => {
+    if (kitchenFoodType === 'VEG') {
+      return !['Egg Curry', 'Chicken Curry'].includes(sug);
+    }
+    return true;
+  });
+
+  const defaultDiet = kitchenFoodType === 'NON_VEG' ? 'NON_VEG' : 'VEG';
 
   // Form State
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [durationDays, setDurationDays] = useState(30);
   const [mealType, setMealType] = useState('LUNCH');
-  const [diet, setDiet] = useState('VEG');
+  const [diet, setDiet] = useState(defaultDiet);
   const [deliveryDays, setDeliveryDays] = useState('ALL_DAYS');
   const [price, setPrice] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -94,7 +113,12 @@ export default function PlanFormModal({
       setDescription(planToEdit.description || '');
       setDurationDays(planToEdit.durationDays || 30);
       setMealType(planToEdit.mealType || 'LUNCH');
-      setDiet(planToEdit.diet || 'VEG');
+      
+      let resolvedEditDiet = planToEdit.diet || 'VEG';
+      if (kitchenFoodType === 'VEG') resolvedEditDiet = 'VEG';
+      else if (kitchenFoodType === 'NON_VEG') resolvedEditDiet = 'NON_VEG';
+      setDiet(resolvedEditDiet);
+
       setDeliveryDays(planToEdit.deliveryDays || 'ALL_DAYS');
       setPrice(planToEdit.price !== undefined ? String(planToEdit.price) : '');
       setImageUrl(planToEdit.imageUrl || '');
@@ -107,16 +131,21 @@ export default function PlanFormModal({
       setDescription('');
       setDurationDays(30);
       setMealType('LUNCH');
-      setDiet('VEG');
+      setDiet(defaultDiet);
       setDeliveryDays('ALL_DAYS');
       setPrice('');
-      setImageUrl(PLAN_PRESET_IMAGES[0].url);
+      const firstPreset = availablePresetImages[0] || PLAN_PRESET_IMAGES[0];
+      setImageUrl(firstPreset ? firstPreset.url : '');
       setShowCustomUrlInput(false);
-      setFeatures(['4 Phulkas / Rotis', 'Dal Tadka', 'Seasonal Sabzi', 'Rice + Salad']);
+      setFeatures(
+        kitchenFoodType === 'NON_VEG'
+          ? ['4 Phulkas / Rotis', 'Chicken Curry', 'Steamed Basmati Rice', 'Fresh Green Salad']
+          : ['4 Phulkas / Rotis', 'Dal Tadka', 'Seasonal Sabzi', 'Rice + Salad']
+      );
       setIsSubscriptionAvailable(true);
     }
     setError(null);
-  }, [planToEdit, isOpen]);
+  }, [planToEdit, isOpen, kitchenFoodType, defaultDiet]);
 
   if (!isOpen) return null;
 
@@ -149,12 +178,16 @@ export default function PlanFormModal({
       return;
     }
 
+    let resolvedDiet = diet;
+    if (kitchenFoodType === 'VEG') resolvedDiet = 'VEG';
+    else if (kitchenFoodType === 'NON_VEG') resolvedDiet = 'NON_VEG';
+
     const payload = {
       name: name.trim(),
       description: description.trim(),
       durationDays: Number(durationDays) || 30,
       mealType,
-      diet,
+      diet: resolvedDiet,
       deliveryDays,
       price: numPrice,
       imageUrl: imageUrl.trim(),
@@ -297,10 +330,10 @@ export default function PlanFormModal({
                 />
               </div>
             ) : (
-              /* One-Click Dish Presets */
+              /* One-Click Dish Presets filtered by kitchen dietary preference */
               <div>
                 <div className="grid grid-cols-3 gap-2">
-                  {PLAN_PRESET_IMAGES.map((preset, idx) => {
+                  {availablePresetImages.map((preset, idx) => {
                     const isSelected = imageUrl === preset.url;
                     return (
                       <div
@@ -340,7 +373,7 @@ export default function PlanFormModal({
                   alt="Plan Preview"
                   className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
                   onError={(e) => {
-                    e.target.src = PLAN_PRESET_IMAGES[0].url;
+                    e.target.src = availablePresetImages[0]?.url || PLAN_PRESET_IMAGES[0].url;
                   }}
                 />
                 <div className="text-[11px] text-slate-500 min-w-0">
@@ -397,15 +430,45 @@ export default function PlanFormModal({
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 Diet <span className="text-red-500">*</span>
               </label>
-              <select
-                value={diet}
-                onChange={(e) => setDiet(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer font-medium"
-              >
-                <option value="VEG">🌱 Veg (Pure Vegetarian)</option>
-                <option value="NON_VEG">🍗 Non-Veg</option>
-                <option value="BOTH">🥗 Both (Veg & Non-Veg)</option>
-              </select>
+              {kitchenFoodType === 'VEG' ? (
+                <div>
+                  <div className="w-full px-3.5 py-2.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>🌱</span> Veg (Pure Vegetarian)
+                    </span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                      Profile Locked
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                    Locked to Pure Veg kitchen onboarding selection
+                  </p>
+                </div>
+              ) : kitchenFoodType === 'NON_VEG' ? (
+                <div>
+                  <div className="w-full px-3.5 py-2.5 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-amber-800 font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span>🍗</span> Non-Veg
+                    </span>
+                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">
+                      Profile Locked
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                    Locked to Non-Veg kitchen onboarding selection
+                  </p>
+                </div>
+              ) : (
+                <select
+                  value={diet}
+                  onChange={(e) => setDiet(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer font-medium"
+                >
+                  <option value="VEG">🌱 Veg (Pure Vegetarian)</option>
+                  <option value="NON_VEG">🍗 Non-Veg</option>
+                  <option value="BOTH">🥗 Both (Veg & Non-Veg)</option>
+                </select>
+              )}
             </div>
 
             <div>
@@ -479,7 +542,7 @@ export default function PlanFormModal({
                 Quick Suggestions:
               </span>
               <div className="flex flex-wrap gap-1.5">
-                {FEATURE_SUGGESTIONS.map((sug) => (
+                {availableFeatureSuggestions.map((sug) => (
                   <button
                     key={sug}
                     type="button"

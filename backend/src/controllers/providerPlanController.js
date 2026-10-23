@@ -118,6 +118,18 @@ export const createProviderPlan = asyncHandler(async (req, res) => {
     ? features.map((f) => String(f).trim()).filter((f) => f.length > 0)
     : [];
 
+  // Enforce dietary constraint based on provider registration
+  let resolvedDiet = (diet || "VEG").toUpperCase().trim();
+  if (provider.foodType === "VEG") {
+    resolvedDiet = "VEG";
+  } else if (provider.foodType === "NON_VEG") {
+    resolvedDiet = "NON_VEG";
+  } else if (provider.foodType === "BOTH") {
+    if (!["VEG", "NON_VEG", "BOTH"].includes(resolvedDiet)) {
+      resolvedDiet = "VEG";
+    }
+  }
+
   const newPlan = await TiffinPlan.create({
     providerId: provider._id,
     name: name.trim(),
@@ -125,7 +137,7 @@ export const createProviderPlan = asyncHandler(async (req, res) => {
     durationDays: parsedDuration,
     mealsPerDay: calculatedMealsPerDay,
     mealType: normalizedMealType,
-    diet: (diet || "VEG").toUpperCase().trim(),
+    diet: resolvedDiet,
     deliveryDays: (deliveryDays || "ALL_DAYS").toUpperCase().trim(),
     features: sanitizedFeatures,
     imageUrl: (imageUrl || "").trim(),
@@ -187,7 +199,17 @@ export const updateProviderPlan = asyncHandler(async (req, res) => {
     plan.price = p;
   }
   if (mealType !== undefined) plan.mealType = mealType.toUpperCase().trim();
-  if (diet !== undefined) plan.diet = diet.toUpperCase().trim();
+  if (diet !== undefined) {
+    let resolvedDiet = diet.toUpperCase().trim();
+    if (provider.foodType === "VEG") {
+      resolvedDiet = "VEG";
+    } else if (provider.foodType === "NON_VEG") {
+      resolvedDiet = "NON_VEG";
+    } else if (!["VEG", "NON_VEG", "BOTH"].includes(resolvedDiet)) {
+      resolvedDiet = "VEG";
+    }
+    plan.diet = resolvedDiet;
+  }
   if (deliveryDays !== undefined) plan.deliveryDays = deliveryDays.toUpperCase().trim();
   if (status !== undefined) plan.status = status.toUpperCase().trim();
   if (isSubscriptionAvailable !== undefined) plan.isSubscriptionAvailable = Boolean(isSubscriptionAvailable);

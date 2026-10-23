@@ -70,9 +70,10 @@ const getAuthenticatedProvider = async (userId) => {
 };
 
 /**
- * Sanitizes input menu object to ensure ONLY valid days and ONLY valid meals (breakfast, lunch, dinner)
+ * Sanitizes input menu object to ensure ONLY valid days and ONLY valid meals (breakfast, lunch, dinner),
+ * and enforces provider foodType constraint (VEG -> Veg only, NON_VEG -> Non-Veg only).
  */
-const sanitizeSchedule = (inputMenu) => {
+const sanitizeSchedule = (inputMenu, providerFoodType = "BOTH") => {
   const sanitized = JSON.parse(JSON.stringify(EMPTY_WEEKLY_MENU_TEMPLATE));
   if (!inputMenu || typeof inputMenu !== "object") return sanitized;
 
@@ -91,15 +92,24 @@ const sanitizeSchedule = (inputMenu) => {
       if (Array.isArray(inputMeal.items)) {
         sanitized[day][meal].items = inputMeal.items
           .filter((dish) => dish && typeof dish.name === "string" && dish.name.trim().length > 0)
-          .map((dish, idx) => ({
-            id: dish.id || `${day.toLowerCase()}-${meal}-${idx}-${Date.now()}`,
-            name: dish.name.trim(),
-            diet: dish.diet === "Non-Veg" ? "Non-Veg" : "Veg",
-            image:
-              (typeof dish.image === "string" && dish.image.trim()) ||
-              (typeof dish.imageUrl === "string" && dish.imageUrl.trim()) ||
-              "",
-          }));
+          .map((dish, idx) => {
+            let dishDiet = dish.diet === "Non-Veg" ? "Non-Veg" : "Veg";
+            if (providerFoodType === "VEG") {
+              dishDiet = "Veg";
+            } else if (providerFoodType === "NON_VEG") {
+              dishDiet = "Non-Veg";
+            }
+
+            return {
+              id: dish.id || `${day.toLowerCase()}-${meal}-${idx}-${Date.now()}`,
+              name: dish.name.trim(),
+              diet: dishDiet,
+              image:
+                (typeof dish.image === "string" && dish.image.trim()) ||
+                (typeof dish.imageUrl === "string" && dish.imageUrl.trim()) ||
+                "",
+            };
+          });
       }
     }
   }
@@ -152,7 +162,7 @@ export const saveWeeklyMenu = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please provide a valid menu object");
   }
 
-  const sanitized = sanitizeSchedule(rawMenu);
+  const sanitized = sanitizeSchedule(rawMenu, provider.foodType);
 
   const updatedDoc = await WeeklyMenu.findOneAndUpdate(
     { providerId: provider._id },
@@ -198,10 +208,17 @@ export const addMenuItem = asyncHandler(async (req, res) => {
     });
   }
 
+  let itemDiet = diet === "Non-Veg" ? "Non-Veg" : "Veg";
+  if (provider.foodType === "VEG") {
+    itemDiet = "Veg";
+  } else if (provider.foodType === "NON_VEG") {
+    itemDiet = "Non-Veg";
+  }
+
   const newItem = {
     id: `${targetDay.toLowerCase()}-${targetMeal}-${Date.now()}`,
     name: dishName,
-    diet: diet === "Non-Veg" ? "Non-Veg" : "Veg",
+    diet: itemDiet,
     image: (image || imageUrl || "").trim(),
   };
 
@@ -260,12 +277,21 @@ export const updateMealWindow = asyncHandler(async (req, res) => {
   if (Array.isArray(items)) {
     menuDoc[targetDay][targetMeal].items = items
       .filter((dish) => dish && dish.name && dish.name.trim())
-      .map((dish, idx) => ({
-        id: dish.id || `${targetDay.toLowerCase()}-${targetMeal}-${idx}-${Date.now()}`,
-        name: dish.name.trim(),
-        diet: dish.diet === "Non-Veg" ? "Non-Veg" : "Veg",
-        image: dish.image || "",
-      }));
+      .map((dish, idx) => {
+        let itemDiet = dish.diet === "Non-Veg" ? "Non-Veg" : "Veg";
+        if (provider.foodType === "VEG") {
+          itemDiet = "Veg";
+        } else if (provider.foodType === "NON_VEG") {
+          itemDiet = "Non-Veg";
+        }
+
+        return {
+          id: dish.id || `${targetDay.toLowerCase()}-${targetMeal}-${idx}-${Date.now()}`,
+          name: dish.name.trim(),
+          diet: itemDiet,
+          image: dish.image || "",
+        };
+      });
   }
 
   await menuDoc.save();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Plus,
@@ -7,6 +7,7 @@ import {
   Sparkles,
   Image as ImageIcon
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const PRESET_FOODS = [
   { name: 'Poha', diet: 'Veg', image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=300&auto=format&fit=crop&q=80' },
@@ -30,11 +31,33 @@ export default function AddItemModal({
   mealType,
   onAddItem,
 }) {
+  const { providerProfile } = useAuth();
+  const kitchenFoodType = providerProfile?.foodType || 'BOTH'; // 'VEG' | 'NON_VEG' | 'BOTH'
+
+  const initialDiet =
+    kitchenFoodType === 'NON_VEG' ? 'Non-Veg' : 'Veg';
+
   const [itemName, setItemName] = useState('');
-  const [diet, setDiet] = useState('Veg');
+  const [diet, setDiet] = useState(initialDiet);
   const [imageUrl, setImageUrl] = useState('');
   const [customImage, setCustomImage] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
+
+  // Sync diet with kitchen foodType whenever modal opens
+  useEffect(() => {
+    if (kitchenFoodType === 'VEG') {
+      setDiet('Veg');
+    } else if (kitchenFoodType === 'NON_VEG') {
+      setDiet('Non-Veg');
+    }
+  }, [isOpen, kitchenFoodType]);
+
+  // Filter presets matching kitchen foodType
+  const availablePresets = PRESET_FOODS.filter((p) => {
+    if (kitchenFoodType === 'VEG') return p.diet === 'Veg';
+    if (kitchenFoodType === 'NON_VEG') return p.diet === 'Non-Veg';
+    return true;
+  });
 
   if (!isOpen) return null;
 
@@ -51,16 +74,23 @@ export default function AddItemModal({
     e.preventDefault();
     if (!itemName.trim()) return;
 
+    const resolvedDiet =
+      kitchenFoodType === 'VEG'
+        ? 'Veg'
+        : kitchenFoodType === 'NON_VEG'
+        ? 'Non-Veg'
+        : diet;
+
     const finalImage =
       imageUrl.trim() ||
-      (diet === 'Veg'
+      (resolvedDiet === 'Veg'
         ? 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&auto=format&fit=crop&q=80'
         : 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=300&auto=format&fit=crop&q=80');
 
     const newItem = {
       id: `${day.toLowerCase()}-${mealType}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: itemName.trim(),
-      diet: diet,
+      diet: resolvedDiet,
       image: finalImage,
     };
 
@@ -107,7 +137,7 @@ export default function AddItemModal({
               <span className="text-[11px] text-slate-400">Click to autofill</span>
             </div>
             <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-slate-50 border border-slate-200/70 rounded-2xl">
-              {PRESET_FOODS.map((food, i) => (
+              {availablePresets.map((food, i) => (
                 <button
                   key={i}
                   type="button"
@@ -147,33 +177,51 @@ export default function AddItemModal({
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
               Dietary Category
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setDiet('Veg')}
-                className={`py-2 px-3 rounded-2xl text-xs font-bold border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  diet === 'Veg'
-                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <span>🌱 Pure Veg</span>
-                {diet === 'Veg' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-              </button>
+            {kitchenFoodType === 'VEG' ? (
+              <div className="py-2.5 px-3.5 rounded-2xl text-xs font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 flex items-center justify-between shadow-2xs">
+                <span className="flex items-center gap-1.5">
+                  <span>🌱 Pure Veg</span>
+                  <span className="text-[10px] font-normal text-emerald-600">(Locked to your kitchen profile)</span>
+                </span>
+                <Check className="w-4 h-4 text-emerald-600" />
+              </div>
+            ) : kitchenFoodType === 'NON_VEG' ? (
+              <div className="py-2.5 px-3.5 rounded-2xl text-xs font-bold bg-amber-50 border border-amber-300 text-amber-900 flex items-center justify-between shadow-2xs">
+                <span className="flex items-center gap-1.5">
+                  <span>🍗 Non-Veg</span>
+                  <span className="text-[10px] font-normal text-amber-600">(Locked to your kitchen profile)</span>
+                </span>
+                <Check className="w-4 h-4 text-amber-600" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDiet('Veg')}
+                  className={`py-2 px-3 rounded-2xl text-xs font-bold border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    diet === 'Veg'
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>🌱 Pure Veg</span>
+                  {diet === 'Veg' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setDiet('Non-Veg')}
-                className={`py-2 px-3 rounded-2xl text-xs font-bold border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  diet === 'Non-Veg'
-                    ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-xs'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <span>🍗 Non-Veg</span>
-                {diet === 'Non-Veg' && <Check className="w-3.5 h-3.5 text-amber-600" />}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setDiet('Non-Veg')}
+                  className={`py-2 px-3 rounded-2xl text-xs font-bold border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    diet === 'Non-Veg'
+                      ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-xs'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>🍗 Non-Veg</span>
+                  {diet === 'Non-Veg' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Photo Preview / Custom URL */}

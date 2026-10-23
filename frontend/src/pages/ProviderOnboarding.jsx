@@ -20,6 +20,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { sanitizePhone, validatePhone } from '../utils/formValidation';
 
 const CITY_AREAS = {
   Ahmedabad: [
@@ -60,6 +61,10 @@ const CITY_AREAS = {
 };
 
 const SAMPLE_IMAGES = [
+  {
+    name: 'TiffinHub Logo (Default)',
+    url: '/tiffin-hub-logo.svg',
+  },
   {
     name: 'Home Thali Kitchen',
     url: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=800&auto=format&fit=crop&q=80',
@@ -143,9 +148,13 @@ export default function ProviderOnboarding() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    let sanitizedValue = value;
+    if (name === 'contactNumber') {
+      sanitizedValue = sanitizePhone(value);
+    }
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: sanitizedValue,
     }));
     if (error) setError('');
   };
@@ -212,8 +221,10 @@ export default function ProviderOnboarding() {
       setError('Please select or specify your city.');
       return;
     }
-    if (formData.serviceArea.length === 0) {
-      setError('Please select or add at least one delivery service locality.');
+    const phoneToValidate = formData.contactNumber.trim() || user?.phone;
+    const phoneErr = validatePhone(phoneToValidate);
+    if (phoneErr) {
+      setError(phoneErr);
       return;
     }
 
@@ -227,7 +238,7 @@ export default function ProviderOnboarding() {
         serviceArea: formData.serviceArea,
         foodType: formData.foodType,
         description: formData.description.trim(),
-        imageUrl: formData.imageUrl.trim(),
+        imageUrl: formData.imageUrl.trim() || '/tiffin-hub-logo.svg',
       });
 
       setSuccessMessage('Profile submitted successfully! Redirecting to application status...');
@@ -382,6 +393,9 @@ export default function ProviderOnboarding() {
                     type="tel"
                     name="contactNumber"
                     required
+                    maxLength={10}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={formData.contactNumber}
                     onChange={handleChange}
                     placeholder="e.g. 9876543211"
@@ -651,22 +665,24 @@ export default function ProviderOnboarding() {
               </div>
 
               {/* Live Preview Box */}
-              {formData.imageUrl && (
-                <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4">
-                  <img
-                    src={formData.imageUrl}
-                    alt="Kitchen Preview"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                    className="w-20 h-16 object-cover rounded-xl border border-slate-200 shadow-sm"
-                  />
-                  <div className="text-xs text-slate-600">
-                    <span className="font-bold text-slate-800 block">Cover Image Preview</span>
-                    <span className="text-slate-400 text-[11px] truncate block max-w-xs">{formData.imageUrl}</span>
-                  </div>
+              <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4">
+                <img
+                  src={formData.imageUrl.trim() || '/tiffin-hub-logo.svg'}
+                  alt="Kitchen Preview"
+                  onError={(e) => {
+                    e.target.src = '/tiffin-hub-logo.svg';
+                  }}
+                  className="w-20 h-14 object-cover rounded-xl border border-slate-200 shadow-sm bg-slate-900"
+                />
+                <div className="text-xs text-slate-600">
+                  <span className="font-bold text-slate-800 block">
+                    {formData.imageUrl.trim() ? 'Custom Cover Preview' : 'Default Profile Image (TiffinHub Logo)'}
+                  </span>
+                  <span className="text-slate-400 text-[11px] truncate block max-w-xs">
+                    {formData.imageUrl.trim() || 'If left blank, the official TiffinHub logo is displayed on your storefront card'}
+                  </span>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Submit Action */}

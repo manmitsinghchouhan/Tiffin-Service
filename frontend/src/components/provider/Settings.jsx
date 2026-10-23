@@ -1,27 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Settings as SettingsIcon,
   Shield,
   KeyRound,
   Clock,
-  Bell,
-  Calendar,
   Save,
   Loader2,
   CheckCircle2,
   AlertCircle,
   Eye,
   EyeOff,
-  MessageCircle,
-  Mail,
-  Zap,
-  CalendarX,
-  Palmtree,
   Lock,
   ChevronRight,
-  LogOut,
-  RefreshCw,
-  Info
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -61,37 +51,18 @@ const DELIVERY_WINDOWS_DINNER = [
 export default function Settings({ onToast, onNavigateToProfile }) {
   const { user, providerProfile, logoutProvider } = useAuth();
 
-  const [activeSubTab, setActiveSubTab] = useState('timing'); // 'timing' | 'notifications' | 'security' | 'policies'
+  const [activeSubTab, setActiveSubTab] = useState('timing'); // 'timing' | 'security'
   const [fetching, setFetching] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
-  // Settings State
+  // Settings State - Operational Timings
   const [orderTiming, setOrderTiming] = useState({
     lunchCutoff: '09:30 AM',
     dinnerCutoff: '04:30 PM',
     lunchDeliveryWindow: '12:00 PM - 01:30 PM',
     dinnerDeliveryWindow: '07:30 PM - 09:00 PM',
     autoAcceptOrders: true,
-  });
-
-  const [notifications, setNotifications] = useState({
-    whatsappAlerts: true,
-    emailDigest: true,
-    customerPauseAlerts: true,
-    lowPrepWarnings: true,
-  });
-
-  const [subscriptionPolicy, setSubscriptionPolicy] = useState({
-    pauseNoticeHours: 24,
-    defaultAutoRenew: true,
-  });
-
-  const [holidayMode, setHolidayMode] = useState({
-    enabled: false,
-    startDate: '',
-    endDate: '',
-    reason: '',
   });
 
   // Password Change Form State
@@ -120,20 +91,6 @@ export default function Settings({ onToast, onNavigateToProfile }) {
         if (isMounted && res.data?.success && res.data?.data?.settings) {
           const s = res.data.data.settings;
           if (s.orderTiming) setOrderTiming(s.orderTiming);
-          if (s.notifications) setNotifications(s.notifications);
-          if (s.subscriptionPolicy) setSubscriptionPolicy(s.subscriptionPolicy);
-          if (s.holidayMode) {
-            setHolidayMode({
-              enabled: Boolean(s.holidayMode.enabled),
-              startDate: s.holidayMode.startDate
-                ? s.holidayMode.startDate.split('T')[0]
-                : '',
-              endDate: s.holidayMode.endDate
-                ? s.holidayMode.endDate.split('T')[0]
-                : '',
-              reason: s.holidayMode.reason || '',
-            });
-          }
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -155,19 +112,11 @@ export default function Settings({ onToast, onNavigateToProfile }) {
     try {
       const payload = {
         orderTiming,
-        notifications,
-        subscriptionPolicy,
-        holidayMode: {
-          enabled: holidayMode.enabled,
-          startDate: holidayMode.startDate || null,
-          endDate: holidayMode.endDate || null,
-          reason: holidayMode.reason.trim(),
-        },
       };
 
       const res = await api.put('/provider/settings', payload);
       if (res.data?.success) {
-        onToast?.('Settings updated and operational rules saved successfully!');
+        onToast?.('Operational timing settings updated successfully!');
       }
     } catch (err) {
       console.error('Failed to update settings:', err);
@@ -218,8 +167,6 @@ export default function Settings({ onToast, onNavigateToProfile }) {
 
   const navTabs = [
     { id: 'timing', label: 'Operational Timings', icon: Clock },
-    { id: 'notifications', label: 'Alert Preferences', icon: Bell },
-    { id: 'policies', label: 'Policies & Holiday Mode', icon: Palmtree },
     { id: 'security', label: 'Account & Security', icon: Shield },
   ];
 
@@ -248,7 +195,7 @@ export default function Settings({ onToast, onNavigateToProfile }) {
             </span>
           </div>
           <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-            Manage daily order cutoff timings, dispatch windows, alert channels, and account security.
+            Manage daily order cutoff timings, dispatch windows, and account security.
           </p>
         </div>
 
@@ -447,337 +394,6 @@ export default function Settings({ onToast, onNavigateToProfile }) {
                 />
               </button>
             </div>
-          </section>
-        </div>
-      )}
-
-      {/* ================= TAB 2: ALERT PREFERENCES ================= */}
-      {activeSubTab === 'notifications' && (
-        <section className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-purple-600" />
-              <span>Notification & Alert Channels</span>
-            </h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Configure how and when your kitchen staff receives alerts and summaries
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            {/* WhatsApp Alerts */}
-            <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-                  <MessageCircle className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900">
-                    WhatsApp Daily Dispatch Run-Sheet
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5 max-w-lg">
-                    Sends an automated summary of the day's total roti, sabzi, and packaging count directly to your verified WhatsApp number.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setNotifications({
-                    ...notifications,
-                    whatsappAlerts: !notifications.whatsappAlerts,
-                  })
-                }
-                className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors cursor-pointer ${
-                  notifications.whatsappAlerts ? 'bg-emerald-600' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
-                    notifications.whatsappAlerts ? 'translate-x-7' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Email Digest */}
-            <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900">
-                    Weekly Performance Digest Email
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5 max-w-lg">
-                    Receive weekly subscriber growth metrics, top-rated dishes, and total commercial earnings every Sunday night.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setNotifications({
-                    ...notifications,
-                    emailDigest: !notifications.emailDigest,
-                  })
-                }
-                className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors cursor-pointer ${
-                  notifications.emailDigest ? 'bg-blue-600' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
-                    notifications.emailDigest ? 'translate-x-7' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Customer Pause Alerts */}
-            <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
-                  <CalendarX className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900">
-                    Customer Meal Pause Alerts
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5 max-w-lg">
-                    Instant alerts when a customer pauses their subscription for a weekend or upcoming trip so you avoid surplus prep.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setNotifications({
-                    ...notifications,
-                    customerPauseAlerts: !notifications.customerPauseAlerts,
-                  })
-                }
-                className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors cursor-pointer ${
-                  notifications.customerPauseAlerts ? 'bg-amber-500' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
-                    notifications.customerPauseAlerts ? 'translate-x-7' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Low Prep Warnings */}
-            <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900">
-                    Pre-Cutoff Urgency Warnings
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5 max-w-lg">
-                    Sends a quick reminder 30 minutes before cutoff if incoming orders exceed usual staff packaging thresholds.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setNotifications({
-                    ...notifications,
-                    lowPrepWarnings: !notifications.lowPrepWarnings,
-                  })
-                }
-                className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors cursor-pointer ${
-                  notifications.lowPrepWarnings ? 'bg-rose-500' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
-                    notifications.lowPrepWarnings ? 'translate-x-7' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ================= TAB 3: POLICIES & HOLIDAY MODE ================= */}
-      {activeSubTab === 'policies' && (
-        <div className="space-y-6">
-          {/* Subscription Policies */}
-          <section className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <span>Subscriber Meal Policies</span>
-              </h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Set customer pause rules and automatic renewal behaviors
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Notice Period */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Meal Pause Notice Required (Hours)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={72}
-                  value={subscriptionPolicy.pauseNoticeHours}
-                  onChange={(e) =>
-                    setSubscriptionPolicy({
-                      ...subscriptionPolicy,
-                      pauseNoticeHours: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-                <span className="text-[11px] text-slate-400 mt-1 block">
-                  e.g., 24 hours means customer must request pauses before 24h of morning dispatch.
-                </span>
-              </div>
-
-              {/* Default Auto-Renew */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Default Auto-Renewal on New Plans
-                </label>
-                <select
-                  value={subscriptionPolicy.defaultAutoRenew ? 'YES' : 'NO'}
-                  onChange={(e) =>
-                    setSubscriptionPolicy({
-                      ...subscriptionPolicy,
-                      defaultAutoRenew: e.target.value === 'YES',
-                    })
-                  }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                >
-                  <option value="YES">Enabled by Default (Recommended)</option>
-                  <option value="NO">Manual Renewal Only</option>
-                </select>
-                <span className="text-[11px] text-slate-400 mt-1 block">
-                  Customers can still toggle their personal preference inside their drawer.
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* Holiday Closure Mode */}
-          <section
-            className={`rounded-3xl p-6 border transition-all shadow-sm ${
-              holidayMode.enabled
-                ? 'bg-amber-50/50 border-amber-300'
-                : 'bg-white border-slate-200/80'
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
-                    holidayMode.enabled
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 border-slate-200'
-                  }`}
-                >
-                  <Palmtree className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Scheduled Kitchen Holiday / Vacation Mode
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Plan seasonal closures (e.g. Diwali, Holi, or kitchen deep maintenance)
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setHolidayMode({
-                      ...holidayMode,
-                      enabled: !holidayMode.enabled,
-                    })
-                  }
-                  className={`relative inline-flex h-7 w-13 items-center rounded-full transition-colors cursor-pointer ${
-                    holidayMode.enabled ? 'bg-amber-500' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
-                      holidayMode.enabled ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-                <span className="text-xs font-bold text-slate-700">
-                  {holidayMode.enabled ? 'ACTIVE' : 'OFF'}
-                </span>
-              </div>
-            </div>
-
-            {holidayMode.enabled && (
-              <div className="mt-5 space-y-4 animate-in fade-in duration-150">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Holiday Closure Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={holidayMode.startDate}
-                      onChange={(e) =>
-                        setHolidayMode({ ...holidayMode, startDate: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Kitchen Reopening Date
-                    </label>
-                    <input
-                      type="date"
-                      value={holidayMode.endDate}
-                      onChange={(e) =>
-                        setHolidayMode({ ...holidayMode, endDate: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Customer Notice Message
-                  </label>
-                  <input
-                    type="text"
-                    value={holidayMode.reason}
-                    onChange={(e) =>
-                      setHolidayMode({ ...holidayMode, reason: e.target.value })
-                    }
-                    placeholder="e.g. Closed for Diwali festive holidays. Deliveries resume Monday."
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                  />
-                </div>
-              </div>
-            )}
           </section>
         </div>
       )}

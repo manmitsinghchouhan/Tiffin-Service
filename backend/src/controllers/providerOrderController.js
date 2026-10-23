@@ -256,6 +256,12 @@ export const getProviderDailyDispatch = asyncHandler(async (req, res) => {
       vegCount++;
     }
 
+    const targetDateStr = validTargetDate.toISOString().split("T")[0];
+    const isMatchingDate = sub.todayDispatchStatus?.date === targetDateStr;
+    const currentDispatchStatus = isMatchingDate && sub.todayDispatchStatus?.status
+      ? sub.todayDispatchStatus.status
+      : "PREPARING";
+
     dispatchList.push({
       _id: sub._id,
       subscriptionId: sub._id,
@@ -272,7 +278,8 @@ export const getProviderDailyDispatch = asyncHandler(async (req, res) => {
       diet: plan.diet || "VEG",
       notes: sub.notes || "",
       status: "ACTIVE",
-      deliveryStatus: "PREPARING",
+      deliveryStatus: currentDispatchStatus,
+      todayDispatchStatus: sub.todayDispatchStatus || null,
       isPaused: false,
     });
   }
@@ -455,5 +462,71 @@ export const updateProviderOrderStatus = asyncHandler(async (req, res) => {
     success: true,
     message: `Order status has been updated to ${newStatus}.`,
     data: order,
+  });
+});
+
+/**
+ * @desc    Update daily dispatch progress stage for a subscriber meal
+ * @route   PATCH /api/provider/orders/dispatch-status/:subscriptionId
+ * @access  Private (Provider only)
+ */
+export const updateSubscriptionDispatchStatus = asyncHandler(async (req, res) => {
+  const provider = await getAuthenticatedProvider(req.user._id);
+  const { subscriptionId } = req.params;
+  const { status, date } = req.body;
+
+  const validStatuses = ["PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
+  if (!status || !validStatuses.includes(status)) {
+    throw new ApiError(400, "Invalid dispatch status. Allowed: PREPARING, OUT_FOR_DELIVERY, DELIVERED");
+  }
+
+  const subscription = await Subscription.findOne({
+    _id: subscriptionId,
+    providerId: provider._id,
+  });
+
+  if (!subscription) {
+    throw new ApiError(404, "Subscription not found or not owned by your kitchen");
+  }
+
+  const dispatchDate = date || new Date().toISOString().split("T")[0];
+
+  subscription.todayDispatchStatus = {
+    status,
+    date: dispatchDate,
+    updatedAt: new Date(),
+  };
+
+  // If status is DELIVERED, record a permanent instance in deliveryHistory
+  if (status === "DELIVERED") {
+    if (!subscription.deliveryHistory) {
+      subscription.deliveryHistory = [];
+    }
+    const alreadyLogged = subscription.deliveryHistory.some(
+      (entry) => entry.date === dispatchDate && entry.status === "DELIVERED"
+    );
+
+    if (!alreadyLogged) {
+      subscription.deliveryHistory.push({
+        date: dispatchDate,
+        deliveredAt: new Date(),
+        mealType: subscription.planSnapshot?.mealType || "LUNCH",
+        status: "DELIVERED",
+        deliveryAddress: subscription.deliveryAddress,
+        notes: subscription.notes || "",
+      });
+    }
+  }
+
+  await subscription.save();
+
+  res.status(200).json({
+    success: true,
+    message: `Meal dispatch status updated to ${status}`,
+    data: {
+      subscriptionId: subscription._id,
+      todayDispatchStatus: subscription.todayDispatchStatus,
+      deliveryHistory: subscription.deliveryHistory,
+    },
   });
 });

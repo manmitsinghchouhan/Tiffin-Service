@@ -282,10 +282,10 @@ export default function BusinessProfile({ onPreviewKitchen, onToast }) {
 
   const currentBanner =
     formData.bannerUrl ||
-    "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=1200&q=80";
+    "/tiffin-hub-logo.svg";
   const currentAvatar =
     formData.imageUrl ||
-    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80";
+    "/tiffin-hub-logo.svg";
 
   if (fetching) {
     return (

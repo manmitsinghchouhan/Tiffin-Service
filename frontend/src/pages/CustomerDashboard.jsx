@@ -28,7 +28,9 @@ import {
   Home,
   Building2,
   Sparkles,
-  Navigation
+  Navigation,
+  Truck,
+  Phone
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -43,6 +45,17 @@ const formatDate = (dateStr) => {
   });
 };
 
+const formatTime = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
 const CUSTOMER_CANCEL_REASONS = [
   "Relocating / Moving to a different address",
   "Food taste / spice level preference",
@@ -51,6 +64,162 @@ const CUSTOMER_CANCEL_REASONS = [
   "Budget or financial constraints",
   "Other reason (please specify)",
 ];
+
+/**
+ * Helper to compute date-aware schedule and live meal dispatch status for a subscription
+ */
+const getMealScheduleInfo = (sub) => {
+  if (!sub) return null;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const startDate = sub.startDate ? new Date(sub.startDate) : null;
+  const startDay = startDate
+    ? new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+    : null;
+
+  const endDate = sub.endDate ? new Date(sub.endDate) : null;
+  const endDay = endDate
+    ? new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
+    : null;
+
+  const durationDays = sub.planSnapshot?.durationDays || 30;
+  const isPaused = sub.status === 'PAUSED';
+
+  // 1. Is subscription upcoming (starts in the future)?
+  if (startDay && today < startDay) {
+    const diffTime = startDay.getTime() - today.getTime();
+    const daysUntilStart = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const isStartsTomorrow = daysUntilStart === 1;
+
+    return {
+      isUpcoming: true,
+      isStartsTomorrow,
+      daysUntilStart,
+      statusLabel: isStartsTomorrow ? 'Starts Tomorrow' : `Starts in ${daysUntilStart} Days`,
+      badgeStyle: 'bg-blue-100 text-blue-800 border-blue-200',
+      pillText: isStartsTomorrow ? `Starts Tomorrow (${formatDate(sub.startDate)})` : `Starts on ${formatDate(sub.startDate)}`,
+      detailText: `Kitchen preparation begins on your scheduled start date (${formatDate(sub.startDate)}).`,
+      daysCompleted: 0,
+      durationDays,
+      progressPercent: 0,
+      progressLabel: isStartsTomorrow ? 'Starts Tomorrow' : `Starts in ${daysUntilStart} days`,
+    };
+  }
+
+  // Calculate elapsed calendar days from startDay
+  let daysCompleted = 1;
+  if (startDay) {
+    const elapsedMs = today.getTime() - startDay.getTime();
+    const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24)) + 1;
+    daysCompleted = Math.max(1, Math.min(durationDays, elapsedDays));
+  }
+  const progressPercent = Math.min(100, Math.round((daysCompleted / durationDays) * 100));
+
+  // Determine delivery window
+  const lunchDeliveryWindow = sub.providerId?.settings?.orderTiming?.lunchDeliveryWindow || '12:00 PM - 01:30 PM';
+  const dinnerDeliveryWindow = sub.providerId?.settings?.orderTiming?.dinnerDeliveryWindow || '07:30 PM - 09:00 PM';
+  const mealType = sub.planSnapshot?.mealType || 'LUNCH';
+  let deliveryWindow = lunchDeliveryWindow;
+  if (mealType === 'DINNER') deliveryWindow = dinnerDeliveryWindow;
+  else if (mealType === 'LUNCH_DINNER' || mealType === 'ALL_MEALS') {
+    deliveryWindow = `${lunchDeliveryWindow} (Lunch) • ${dinnerDeliveryWindow} (Dinner)`;
+  }
+
+  // Check date matching for live dispatch
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const isTodayDispatch =
+    sub.todayDispatchStatus?.date === todayStr ||
+    (!sub.todayDispatchStatus?.date && startDay && today.getTime() === startDay.getTime());
+
+  const dispatchStatus = isTodayDispatch
+    ? sub.todayDispatchStatus?.status || 'PREPARING'
+    : 'PREPARING';
+
+  const isMealDeliveredToday = isTodayDispatch && dispatchStatus === 'DELIVERED';
+
+  // 2. Is subscription paused?
+  if (isPaused) {
+    if (isMealDeliveredToday) {
+      return {
+        isPaused: true,
+        isMealDeliveredToday: true,
+        stage: 'DELIVERED',
+        statusLabel: 'Paused',
+        badgeStyle: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        pillText: 'Delivered ✓ 🍱',
+        detailText: 'Delivered earlier today. Future deliveries put on hold.',
+        daysCompleted,
+        durationDays,
+        progressPercent,
+        progressLabel: `Day ${daysCompleted} of ${durationDays} (Paused)`,
+        deliveryWindow,
+      };
+    }
+
+    return {
+      isPaused: true,
+      statusLabel: 'Paused',
+      badgeStyle: 'bg-amber-100 text-amber-800 border-amber-200',
+      pillText: 'Paused (On Hold)',
+      detailText: 'Deliveries paused by customer. Click "Resume" to restart meal prep.',
+      daysCompleted,
+      durationDays,
+      progressPercent,
+      progressLabel: `Day ${daysCompleted} of ${durationDays} (Paused)`,
+      deliveryWindow,
+    };
+  }
+
+  // 3. Active ongoing delivery
+  if (dispatchStatus === 'DELIVERED') {
+    return {
+      isActive: true,
+      stage: 'DELIVERED',
+      statusLabel: 'Delivered',
+      badgeStyle: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      pillText: 'Delivered ✓ 🍱',
+      detailText: 'Delivered fresh to your doorstep today.',
+      daysCompleted,
+      durationDays,
+      progressPercent,
+      progressLabel: `Day ${daysCompleted} of ${durationDays}`,
+      deliveryWindow,
+    };
+  }
+
+  if (dispatchStatus === 'OUT_FOR_DELIVERY') {
+    return {
+      isActive: true,
+      stage: 'OUT_FOR_DELIVERY',
+      statusLabel: 'Out for Delivery',
+      badgeStyle: 'bg-purple-100 text-purple-800 border-purple-300',
+      pillText: 'Out for Delivery 🛵',
+      detailText: `Rider en route! Expected arrival: ${deliveryWindow}`,
+      daysCompleted,
+      durationDays,
+      progressPercent,
+      progressLabel: `Day ${daysCompleted} of ${durationDays}`,
+      deliveryWindow,
+    };
+  }
+
+  // Default: Cooking / Preparing
+  return {
+    isActive: true,
+    stage: 'PREPARING',
+    statusLabel: 'Cooking / Preparing',
+    badgeStyle: 'bg-amber-100 text-amber-800 border-amber-200',
+    pillText: 'Cooking / Preparing 🍳',
+    detailText: `Expected: ${deliveryWindow}`,
+    daysCompleted,
+    durationDays,
+    progressPercent,
+    progressLabel: `Day ${daysCompleted} of ${durationDays}`,
+    deliveryWindow,
+  };
+};
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
@@ -82,6 +251,9 @@ export default function CustomerDashboard() {
 
   // Sub-filter inside My Subscriptions: 'active' | 'pending' | 'history'
   const [subFilter, setSubFilter] = useState('active');
+
+  // Sub-filter inside Orders & History: 'ALL' | 'DELIVERED' | 'CANCELLED' | 'EXPIRED'
+  const [historyFilter, setHistoryFilter] = useState('ALL');
 
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -404,12 +576,69 @@ export default function CustomerDashboard() {
   const pendingSubs = subscriptions.filter(
     (s) => s.status === 'PENDING'
   );
+  const cancelledSubs = subscriptions.filter(
+    (s) => s.status === 'CANCELLED'
+  );
+  const expiredSubs = subscriptions.filter(
+    (s) => s.status === 'EXPIRED'
+  );
   const historySubs = subscriptions.filter(
     (s) => s.status === 'EXPIRED' || s.status === 'CANCELLED'
   );
 
-  // Today's Upcoming Meal (from first active subscription)
-  const todaySub = activeSubs[0] || null;
+  // Extract all delivered meals across all customer subscriptions
+  const allDeliveredMeals = subscriptions
+    .flatMap((sub) => {
+      const historyList = [...(sub.deliveryHistory || [])];
+
+      // Auto-fallback: if sub.todayDispatchStatus is DELIVERED, guarantee it's in historyList
+      if (
+        sub.todayDispatchStatus?.status === 'DELIVERED' &&
+        sub.todayDispatchStatus?.date
+      ) {
+        const dDate = sub.todayDispatchStatus.date;
+        const exists = historyList.some(
+          (h) => h.date === dDate && h.status === 'DELIVERED'
+        );
+        if (!exists) {
+          historyList.push({
+            date: dDate,
+            deliveredAt: sub.todayDispatchStatus.updatedAt || new Date(),
+            mealType: sub.planSnapshot?.mealType || 'LUNCH',
+            status: 'DELIVERED',
+            deliveryAddress: sub.deliveryAddress,
+            notes: sub.notes || '',
+          });
+        }
+      }
+
+      return historyList.map((item) => ({
+        ...item,
+        subscriptionId: sub._id,
+        planTitle: sub.planSnapshot?.name || 'Tiffin Meal',
+        kitchenName: sub.providerId?.businessName || 'Verified Kitchen',
+        kitchenImage: sub.providerId?.imageUrl || '',
+        kitchenPhone: sub.providerId?.phone || '',
+        mealType: item.mealType || sub.planSnapshot?.mealType || 'LUNCH',
+        diet: sub.planSnapshot?.diet || 'VEG',
+        deliveryAddress: item.deliveryAddress || sub.deliveryAddress,
+        deliveredAt: item.deliveredAt || item.date,
+        date: item.date,
+        notes: item.notes || sub.notes || '',
+      }));
+    })
+    .sort((a, b) => new Date(b.deliveredAt || b.date) - new Date(a.deliveredAt || a.date));
+
+  // Today's Upcoming Meal (prioritize active delivery today, fallback to first active/upcoming sub)
+  const todaySub =
+    activeSubs.find((s) => {
+      const info = getMealScheduleInfo(s);
+      return info && !info.isUpcoming && (!info.isPaused || info.stage === 'DELIVERED');
+    }) ||
+    activeSubs[0] ||
+    null;
+
+  const todaySchedule = todaySub ? getMealScheduleInfo(todaySub) : null;
 
   return (
     <div className="min-h-screen bg-[#f8fafd] flex">
@@ -503,14 +732,21 @@ export default function CustomerDashboard() {
             <button
               type="button"
               onClick={() => handleTabSwitch('history')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                 mainTab === 'history'
                   ? 'bg-blue-50 text-blue-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Package className={`w-4 h-4 ${mainTab === 'history' ? 'text-blue-600' : 'text-slate-400'}`} />
-              <span>Orders & History</span>
+              <div className="flex items-center gap-3">
+                <Package className={`w-4 h-4 ${mainTab === 'history' ? 'text-blue-600' : 'text-slate-400'}`} />
+                <span>Orders & History</span>
+              </div>
+              {(allDeliveredMeals.length + historySubs.length) > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
+                  {allDeliveredMeals.length + historySubs.length}
+                </span>
+              )}
             </button>
 
             {/* 5. Saved Kitchens */}
@@ -794,24 +1030,70 @@ export default function CustomerDashboard() {
                   )}
                 </div>
 
-                {todaySub ? (
+                {todaySub && todaySchedule ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {/* Meal & Kitchen Details */}
-                    <div className="bg-amber-50/60 border border-amber-200/70 rounded-2xl p-5 space-y-3">
+                    <div
+                      className={`border rounded-2xl p-5 space-y-3 ${
+                        todaySchedule.isUpcoming
+                          ? 'bg-blue-50/60 border-blue-200/70'
+                          : todaySchedule.isPaused
+                          ? 'bg-amber-50/60 border-amber-200/70'
+                          : todaySchedule.stage === 'DELIVERED'
+                          ? 'bg-emerald-50/60 border-emerald-200/70'
+                          : todaySchedule.stage === 'OUT_FOR_DELIVERY'
+                          ? 'bg-purple-50/60 border-purple-200/70'
+                          : 'bg-amber-50/60 border-amber-200/70'
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                          <Utensils className="w-5 h-5" />
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                            todaySchedule.isUpcoming
+                              ? 'bg-blue-600 text-white'
+                              : todaySchedule.isPaused
+                              ? 'bg-amber-500 text-white'
+                              : todaySchedule.stage === 'DELIVERED'
+                              ? 'bg-emerald-600 text-white'
+                              : todaySchedule.stage === 'OUT_FOR_DELIVERY'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-amber-500 text-white'
+                          }`}
+                        >
+                          {todaySchedule.isUpcoming ? (
+                            <Clock className="w-5 h-5" />
+                          ) : todaySchedule.isPaused ? (
+                            <Pause className="w-5 h-5" />
+                          ) : todaySchedule.stage === 'DELIVERED' ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                          ) : todaySchedule.stage === 'OUT_FOR_DELIVERY' ? (
+                            <Truck className="w-5 h-5" />
+                          ) : (
+                            <Utensils className="w-5 h-5" />
+                          )}
                         </div>
                         <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">
-                            Meal Status
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider block ${
+                              todaySchedule.isUpcoming
+                                ? 'text-blue-800'
+                                : todaySchedule.isPaused
+                                ? 'text-amber-800'
+                                : todaySchedule.stage === 'DELIVERED'
+                                ? 'text-emerald-800'
+                                : todaySchedule.stage === 'OUT_FOR_DELIVERY'
+                                ? 'text-purple-800'
+                                : 'text-amber-800'
+                            }`}
+                          >
+                            {todaySchedule.isUpcoming ? 'Scheduled Start' : 'Meal Status'}
                           </span>
                           <span className="text-sm font-extrabold text-slate-900">
-                            {todaySub.status === 'PAUSED' ? 'Paused (Deliveries on hold)' : 'Preparing 🍳'}
+                            {todaySchedule.pillText}
                           </span>
                         </div>
                       </div>
-                      <div className="pt-2 border-t border-amber-200/50 text-xs text-slate-700 space-y-1">
+                      <div className="pt-2 border-t border-slate-200/60 text-xs text-slate-700 space-y-1">
                         <p className="font-bold text-slate-900">
                           {todaySub.providerId?.businessName || 'Verified Kitchen'}
                         </p>
@@ -829,15 +1111,25 @@ export default function CustomerDashboard() {
                         </div>
                         <div>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 block">
-                            Delivery Window
+                            {todaySchedule.isUpcoming ? 'Scheduled Time Window' : 'Delivery Window'}
                           </span>
                           <span className="text-sm font-extrabold text-blue-900">
-                            {todaySub.providerId?.settings?.orderTiming?.lunchDeliveryWindow || '12:00 PM - 01:30 PM'}
+                            {todaySchedule.isPaused
+                              ? 'Paused'
+                              : todaySchedule.deliveryWindow ||
+                                todaySub.providerId?.settings?.orderTiming?.lunchDeliveryWindow ||
+                                '12:00 PM - 01:30 PM'}
                           </span>
                         </div>
                       </div>
                       <div className="pt-2 border-t border-blue-200/50 text-xs text-slate-600 space-y-1">
-                        <p>Expected arrival at your address between these hours.</p>
+                        <p>
+                          {todaySchedule.isUpcoming
+                            ? `Deliveries begin on ${formatDate(todaySub.startDate)} during this slot.`
+                            : todaySchedule.isPaused
+                            ? 'Deliveries are temporarily on hold. Click resume to restart.'
+                            : 'Expected arrival at your address between these hours.'}
+                        </p>
                       </div>
                     </div>
 
@@ -1044,10 +1336,11 @@ export default function CustomerDashboard() {
                     <div className="space-y-6">
                       {activeSubs.map((sub) => {
                         const isPaused = sub.status === 'PAUSED';
-                        const durationDays = sub.planSnapshot?.durationDays || 30;
-                        const remainingDays = sub.remainingDays !== undefined ? sub.remainingDays : 21;
-                        const daysCompleted = Math.max(1, Math.min(durationDays, durationDays - remainingDays));
-                        const progressPercent = Math.min(100, Math.round((daysCompleted / durationDays) * 100));
+                        const scheduleInfo = getMealScheduleInfo(sub);
+                        const durationDays = scheduleInfo?.durationDays || sub.planSnapshot?.durationDays || 30;
+                        const daysCompleted = scheduleInfo?.daysCompleted || 1;
+                        const progressPercent = scheduleInfo?.progressPercent || 0;
+                        const progressLabel = scheduleInfo?.progressLabel || `Day ${daysCompleted} of ${durationDays}`;
 
                         const kitchenName = sub.providerId?.businessName || 'Verified Kitchen';
                         const planName = sub.planSnapshot?.name || 'Monthly Tiffin Plan';
@@ -1057,7 +1350,7 @@ export default function CustomerDashboard() {
 
                         const bannerImg =
                           sub.providerId?.imageUrl ||
-                          'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=400&q=80';
+                          '/tiffin-hub-logo.svg';
 
                         return (
                           <div
@@ -1080,11 +1373,13 @@ export default function CustomerDashboard() {
                                       className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs ${
                                         isPaused
                                           ? 'bg-amber-500 text-white'
+                                          : scheduleInfo?.isUpcoming
+                                          ? 'bg-blue-600 text-white'
                                           : 'bg-emerald-600 text-white'
                                       }`}
                                     >
                                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                                      {isPaused ? 'Paused' : 'Active'}
+                                      {isPaused ? 'Paused' : scheduleInfo?.isUpcoming ? 'Scheduled' : 'Active'}
                                     </span>
                                   </div>
                                 </div>
@@ -1118,7 +1413,7 @@ export default function CustomerDashboard() {
                               {/* Progress bar */}
                               <div className="lg:w-72 space-y-2">
                                 <div className="flex items-center justify-between text-xs font-bold">
-                                  <span className="text-slate-700">Day {daysCompleted} of {durationDays}</span>
+                                  <span className="text-slate-700">{progressLabel}</span>
                                   <span className="text-blue-600 font-extrabold">{progressPercent}%</span>
                                 </div>
                                 <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
@@ -1180,19 +1475,73 @@ export default function CustomerDashboard() {
                             {/* Bottom 3 Information Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                               {/* Col 1: Today's Meal */}
-                              <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 flex items-center gap-3.5">
-                                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                                  <Utensils className="w-5 h-5" />
+                              <div
+                                className={`border rounded-2xl p-4 flex items-center gap-3.5 ${
+                                  scheduleInfo?.isUpcoming
+                                    ? 'bg-blue-50/50 border-blue-100'
+                                    : scheduleInfo?.isPaused
+                                    ? 'bg-amber-50/50 border-amber-100'
+                                    : scheduleInfo?.stage === 'DELIVERED'
+                                    ? 'bg-emerald-50/50 border-emerald-100'
+                                    : scheduleInfo?.stage === 'OUT_FOR_DELIVERY'
+                                    ? 'bg-purple-50/50 border-purple-100'
+                                    : 'bg-amber-50/50 border-amber-100'
+                                }`}
+                              >
+                                <div
+                                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                    scheduleInfo?.isUpcoming
+                                      ? 'bg-blue-100 text-blue-600'
+                                      : scheduleInfo?.isPaused
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : scheduleInfo?.stage === 'DELIVERED'
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : scheduleInfo?.stage === 'OUT_FOR_DELIVERY'
+                                      ? 'bg-purple-100 text-purple-700'
+                                      : 'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
+                                  {scheduleInfo?.isUpcoming ? (
+                                    <Clock className="w-5 h-5" />
+                                  ) : scheduleInfo?.isPaused ? (
+                                    <Pause className="w-5 h-5" />
+                                  ) : scheduleInfo?.stage === 'DELIVERED' ? (
+                                    <CheckCircle2 className="w-5 h-5" />
+                                  ) : scheduleInfo?.stage === 'OUT_FOR_DELIVERY' ? (
+                                    <Truck className="w-5 h-5" />
+                                  ) : (
+                                    <Utensils className="w-5 h-5" />
+                                  )}
                                 </div>
                                 <div className="overflow-hidden">
                                   <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                                    Today's Meal
+                                    {scheduleInfo?.isUpcoming ? 'Scheduled Delivery' : "Today's Meal"}
                                   </span>
-                                  <span className="text-xs font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-md inline-block mt-0.5">
-                                    {isPaused ? 'Paused' : 'Preparing'}
+                                  <span
+                                    className={`text-xs font-bold px-2 py-0.5 rounded-md inline-block mt-0.5 ${
+                                      scheduleInfo?.isUpcoming
+                                        ? 'text-blue-800 bg-blue-100/80'
+                                        : scheduleInfo?.isPaused
+                                        ? 'text-amber-800 bg-amber-100/80'
+                                        : scheduleInfo?.stage === 'DELIVERED'
+                                        ? 'text-emerald-800 bg-emerald-100/80'
+                                        : scheduleInfo?.stage === 'OUT_FOR_DELIVERY'
+                                        ? 'text-purple-800 bg-purple-100/80'
+                                        : 'text-amber-800 bg-amber-100/80'
+                                    }`}
+                                  >
+                                    {scheduleInfo?.pillText || 'Preparing'}
                                   </span>
                                   <p className="text-[11px] text-slate-500 mt-1 truncate">
-                                    Expected: {sub.providerId?.settings?.orderTiming?.lunchDeliveryWindow || '12:00 PM - 01:30 PM'}
+                                    {scheduleInfo?.isUpcoming
+                                      ? `Starts on ${formatDate(sub.startDate)}`
+                                      : scheduleInfo?.isPaused
+                                      ? 'Paused • Resume to restart deliveries'
+                                      : `Expected: ${
+                                          scheduleInfo?.deliveryWindow ||
+                                          sub.providerId?.settings?.orderTiming?.lunchDeliveryWindow ||
+                                          '12:00 PM - 01:30 PM'
+                                        }`}
                                   </p>
                                 </div>
                               </div>
@@ -1288,7 +1637,7 @@ export default function CustomerDashboard() {
 
                         const bannerImg =
                           sub.providerId?.imageUrl ||
-                          'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=400&q=80';
+                          '/tiffin-hub-logo.svg';
 
                         return (
                           <div
@@ -1624,24 +1973,441 @@ export default function CustomerDashboard() {
              ========================================================================= */}
           {!loading && !error && mainTab === 'history' && (
             <div className="space-y-6 animate-fadeIn">
-              
+              {/* Header */}
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Orders & Subscription History
+                  Orders & Delivery History
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  Complete record of your past completed, renewed, or cancelled tiffin meal subscriptions.
+                  Complete chronological ledger of your daily delivered meals, active plans, and past subscriptions.
                 </p>
               </div>
 
-              {historySubs.length === 0 ? (
+              {/* 3 Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                      Delivered Meals
+                    </span>
+                    <p className="text-3xl font-black text-emerald-600 mt-1">
+                      {allDeliveredMeals.length}
+                    </p>
+                    <span className="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Daily meals received</span>
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Utensils className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                      Active Subscriptions
+                    </span>
+                    <p className="text-3xl font-black text-blue-600 mt-1">
+                      {activeSubs.length}
+                    </p>
+                    <span className="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                      <Truck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Currently delivering daily</span>
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                      Past Subscriptions
+                    </span>
+                    <p className="text-3xl font-black text-slate-800 mt-1">
+                      {historySubs.length}
+                    </p>
+                    <span className="text-[11px] text-slate-500 font-medium mt-1 block">
+                      {cancelledSubs.length} cancelled • {expiredSubs.length} completed
+                    </span>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                    <Package className="w-6 h-6" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-Filter Pills Bar */}
+              <div className="bg-white rounded-2xl p-2 border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilter('ALL')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    historyFilter === 'ALL'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>All Records</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                    historyFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {allDeliveredMeals.length + historySubs.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilter('DELIVERED')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    historyFilter === 'DELIVERED'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>🍱 Delivered Meals</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                    historyFilter === 'DELIVERED' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {allDeliveredMeals.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilter('CANCELLED')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    historyFilter === 'CANCELLED'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>❌ Cancelled Plans</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                    historyFilter === 'CANCELLED' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {cancelledSubs.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setHistoryFilter('EXPIRED')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    historyFilter === 'EXPIRED'
+                      ? 'bg-slate-800 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>⌛ Completed Plans</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                    historyFilter === 'EXPIRED' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {expiredSubs.length}
+                  </span>
+                </button>
+              </div>
+
+              {/* SECTION 1: DELIVERED MEALS LIST */}
+              {(historyFilter === 'ALL' || historyFilter === 'DELIVERED') && (
+                <div className="space-y-3">
+                  {historyFilter === 'ALL' && allDeliveredMeals.length > 0 && (
+                    <div className="flex items-center justify-between pt-2">
+                      <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                        <Utensils className="w-4 h-4 text-emerald-600" />
+                        <span>Delivered Meals Ledger ({allDeliveredMeals.length})</span>
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setHistoryFilter('DELIVERED')}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                      >
+                        View Meals Only →
+                      </button>
+                    </div>
+                  )}
+
+                  {allDeliveredMeals.length === 0 ? (
+                    historyFilter === 'DELIVERED' && (
+                      <div className="bg-white rounded-3xl p-12 text-center max-w-md mx-auto border border-slate-200/80 shadow-md">
+                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+                          <Utensils className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">No Delivered Meals Yet</h3>
+                        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                          As your kitchen provider dispatches and marks each daily meal delivered, your verified delivery timestamps and receipts will automatically appear here.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleTabSwitch('subscriptions')}
+                          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 cursor-pointer inline-flex items-center gap-2"
+                        >
+                          <span>Check Active Subscriptions</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className="space-y-3">
+                      {allDeliveredMeals.map((meal, idx) => (
+                        <div
+                          key={meal._id || idx}
+                          className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-emerald-300 shadow-xs transition-all space-y-3"
+                        >
+                          {/* Top Row: Kitchen, Date & Status */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 text-xs">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                <Utensils className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="font-extrabold text-slate-900 text-sm">
+                                  {meal.kitchenName}
+                                </h4>
+                                <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                                  <span>📅 {formatDate(meal.date)}</span>
+                                  <span>•</span>
+                                  <span>🕒 Delivered at {formatTime(meal.deliveredAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-start sm:self-auto">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Delivered ✓ 🍱</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Middle Row: Plan details & Dietary tags */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-slate-800">
+                                {meal.planTitle}
+                              </span>
+                              <span className="bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-md text-[11px]">
+                                🍴 {meal.mealType || 'Lunch'}
+                              </span>
+                              <span className={`font-semibold px-2 py-0.5 rounded-md text-[11px] ${
+                                meal.diet === 'NON_VEG'
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : 'bg-emerald-50 text-emerald-700'
+                              }`}>
+                                {meal.diet === 'NON_VEG' ? '🍗 Non-Veg' : '🌱 Veg'}
+                              </span>
+                              {meal.kitchenPhone && (
+                                <a
+                                  href={`tel:${meal.kitchenPhone}`}
+                                  className="text-slate-500 hover:text-blue-600 flex items-center gap-1 text-[11px] ml-1"
+                                >
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  <span>{meal.kitchenPhone}</span>
+                                </a>
+                              )}
+                            </div>
+
+                            <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/70">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Verified kitchen delivery</span>
+                            </span>
+                          </div>
+
+                          {/* Bottom Row: Address */}
+                          <div className="text-xs text-slate-600 flex items-center gap-1.5 pt-1">
+                            <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span className="text-slate-400">Delivered to:</span>
+                            <span className="font-semibold text-slate-700 truncate">
+                              {[meal.deliveryAddress?.street, meal.deliveryAddress?.landmark, meal.deliveryAddress?.city]
+                                .filter(Boolean)
+                                .join(', ') || 'Saved Address'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SECTION 2: CANCELLED SUBSCRIPTIONS */}
+              {(historyFilter === 'ALL' || historyFilter === 'CANCELLED') && (
+                <div className="space-y-3">
+                  {historyFilter === 'ALL' && cancelledSubs.length > 0 && (
+                    <div className="flex items-center justify-between pt-4">
+                      <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600" />
+                        <span>Cancelled Subscriptions ({cancelledSubs.length})</span>
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setHistoryFilter('CANCELLED')}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                      >
+                        View Cancelled Only →
+                      </button>
+                    </div>
+                  )}
+
+                  {cancelledSubs.length === 0 ? (
+                    historyFilter === 'CANCELLED' && (
+                      <div className="bg-white rounded-3xl p-12 text-center max-w-md mx-auto border border-slate-200/80 shadow-md">
+                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+                          <CheckCircle2 className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">No Cancelled Subscriptions</h3>
+                        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                          Great news! You do not have any cancelled subscriptions on your account.
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    <div className="space-y-3">
+                      {cancelledSubs.map((sub) => (
+                        <div
+                          key={sub._id}
+                          className="bg-white rounded-2xl p-6 border border-rose-200/80 hover:border-rose-300 shadow-xs transition-all space-y-4"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-extrabold text-slate-900 text-sm">
+                                  {sub.providerId?.businessName || 'Verified Kitchen'}
+                                </span>
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                                  CANCELLED
+                                </span>
+                              </div>
+                              <p className="font-semibold text-slate-700 mt-1">
+                                {sub.planSnapshot?.name} • {sub.planSnapshot?.mealType} • ₹{sub.totalAmount}
+                              </p>
+                              <p className="text-slate-400 text-[11px] mt-0.5">
+                                Scheduled: {formatDate(sub.startDate)} – {formatDate(sub.endDate)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Cancellation Reason Box */}
+                          <div className="bg-rose-50/70 border border-rose-200/70 rounded-xl p-3.5 text-xs text-rose-900 space-y-1">
+                            <p className="font-bold flex items-center gap-1.5">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              <span>Cancellation Reason: "{sub.cancellationReason || 'Cancelled by customer'}"</span>
+                            </p>
+                            <p className="text-[11px] text-rose-700/80">
+                              Cancelled on: {formatDate(sub.cancelledAt || sub.updatedAt)} • By: {sub.cancelledBy || 'Customer'}
+                            </p>
+                          </div>
+
+                          {/* Address */}
+                          <div className="text-xs text-slate-600 flex items-center gap-1.5 pt-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="text-slate-400">Delivery Address:</span>
+                            <span className="font-semibold text-slate-700 truncate">
+                              {[sub.deliveryAddress?.street, sub.deliveryAddress?.landmark, sub.deliveryAddress?.city]
+                                .filter(Boolean)
+                                .join(', ') || 'Saved Address'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SECTION 3: EXPIRED / COMPLETED SUBSCRIPTIONS */}
+              {(historyFilter === 'ALL' || historyFilter === 'EXPIRED') && (
+                <div className="space-y-3">
+                  {historyFilter === 'ALL' && expiredSubs.length > 0 && (
+                    <div className="flex items-center justify-between pt-4">
+                      <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                        <Package className="w-4 h-4 text-purple-600" />
+                        <span>Completed & Expired Plans ({expiredSubs.length})</span>
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setHistoryFilter('EXPIRED')}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                      >
+                        View Completed Only →
+                      </button>
+                    </div>
+                  )}
+
+                  {expiredSubs.length === 0 ? (
+                    historyFilter === 'EXPIRED' && (
+                      <div className="bg-white rounded-3xl p-12 text-center max-w-md mx-auto border border-slate-200/80 shadow-md">
+                        <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto mb-4">
+                          <Package className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">No Completed Plans Yet</h3>
+                        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                          Whenever a subscription finishes its full duration of deliveries, it will be catalogued here.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleTabSwitch('subscriptions')}
+                          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 cursor-pointer inline-flex items-center gap-2"
+                        >
+                          <span>View Active Subscriptions</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className="space-y-3">
+                      {expiredSubs.map((sub) => (
+                        <div
+                          key={sub._id}
+                          className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-slate-900 text-sm">
+                                {sub.providerId?.businessName || 'Verified Kitchen'}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                COMPLETED
+                              </span>
+                            </div>
+                            <p className="font-semibold text-slate-700">
+                              {sub.planSnapshot?.name} • {sub.planSnapshot?.mealType} • ₹{sub.totalAmount}
+                            </p>
+                            <p className="text-slate-400 text-[11px]">
+                              Duration: {formatDate(sub.startDate)} – {formatDate(sub.endDate)} ({sub.planSnapshot?.durationDays} Days Served)
+                            </p>
+                            {sub.notes && (
+                              <p className="text-slate-500 italic text-[11px] pt-1">
+                                Kitchen Note: {sub.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-slate-600 flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="text-slate-400">Delivered to:</span>
+                            <span className="font-semibold text-slate-700">
+                              {[sub.deliveryAddress?.street, sub.deliveryAddress?.city].filter(Boolean).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* OVERALL EMPTY STATE */}
+              {allDeliveredMeals.length === 0 && historySubs.length === 0 && (
                 <div className="bg-white rounded-3xl p-12 text-center max-w-md mx-auto border border-slate-200/80 shadow-md">
                   <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto mb-4">
                     <Package className="w-7 h-7" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-1">No Past Subscriptions</h3>
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">No Orders or Delivery History</h3>
                   <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                    Whenever a subscription expires or finishes its duration, its complete history will be safely stored here for easy re-ordering.
+                    You have not received any meals or completed any subscriptions yet. Explore verified home kitchens to start your meal schedule!
                   </p>
                   <button
                     type="button"
@@ -1652,51 +2418,7 @@ export default function CustomerDashboard() {
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {historySubs.map((sub) => (
-                    <div
-                      key={sub._id}
-                      className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-slate-900 text-sm">
-                            {sub.providerId?.businessName || 'Kitchen'}
-                          </span>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            sub.status === 'EXPIRED' ? 'bg-slate-100 text-slate-600' : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {sub.status}
-                          </span>
-                        </div>
-                        <p className="font-semibold text-slate-700">
-                          {sub.planSnapshot?.name} • {sub.planSnapshot?.mealType} • ₹{sub.totalAmount}
-                        </p>
-                        <p className="text-slate-400 text-[11px]">
-                          Duration: {formatDate(sub.startDate)} – {formatDate(sub.endDate)}
-                        </p>
-                        {sub.notes && (
-                          <p className="text-slate-500 italic text-[11px] pt-1">
-                            Note: {sub.notes}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => navigate('/#subscription')}
-                          className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer transition-colors shadow-xs"
-                        >
-                          Re-Subscribe
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               )}
-
             </div>
           )}
 

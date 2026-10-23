@@ -105,6 +105,17 @@ const tiffinProviderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    rating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    reviewsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     settings: {
       orderTiming: {
         lunchCutoff: { type: String, default: "09:30 AM" },
@@ -112,22 +123,6 @@ const tiffinProviderSchema = new mongoose.Schema(
         lunchDeliveryWindow: { type: String, default: "12:00 PM - 01:30 PM" },
         dinnerDeliveryWindow: { type: String, default: "07:30 PM - 09:00 PM" },
         autoAcceptOrders: { type: Boolean, default: true },
-      },
-      notifications: {
-        whatsappAlerts: { type: Boolean, default: true },
-        emailDigest: { type: Boolean, default: true },
-        customerPauseAlerts: { type: Boolean, default: true },
-        lowPrepWarnings: { type: Boolean, default: true },
-      },
-      subscriptionPolicy: {
-        pauseNoticeHours: { type: Number, default: 24 },
-        defaultAutoRenew: { type: Boolean, default: true },
-      },
-      holidayMode: {
-        enabled: { type: Boolean, default: false },
-        startDate: { type: Date },
-        endDate: { type: Date },
-        reason: { type: String, default: "" },
       },
     },
   },

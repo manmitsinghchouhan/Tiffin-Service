@@ -457,11 +457,19 @@ export default function SubscribeModal({ plan, kitchen, onClose, existingSubscri
                         {kitchen.businessName}
                       </h4>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <div className="flex items-center text-amber-500 font-bold text-xs gap-0.5">
+                        <div className="flex items-center text-amber-500 font-bold text-xs gap-1">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span>4.8</span>
+                          <span>
+                            {kitchen.reviewsCount > 0
+                              ? Number(kitchen.rating || 0).toFixed(1)
+                              : 'New'}
+                          </span>
                         </div>
-                        <span className="text-slate-400 text-xs font-medium">(120 reviews)</span>
+                        {kitchen.reviewsCount > 0 && (
+                          <span className="text-slate-400 text-xs font-medium">
+                            ({kitchen.reviewsCount} {kitchen.reviewsCount === 1 ? 'review' : 'reviews'})
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

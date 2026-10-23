@@ -26,6 +26,22 @@ const deliveryAddressSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const deliveryHistorySchema = new mongoose.Schema(
+  {
+    date: { type: String, required: true }, // e.g. "2026-10-23"
+    deliveredAt: { type: Date, default: Date.now },
+    mealType: { type: String, default: "LUNCH" },
+    status: {
+      type: String,
+      enum: ["DELIVERED", "SKIPPED"],
+      default: "DELIVERED",
+    },
+    deliveryAddress: { type: deliveryAddressSchema },
+    notes: { type: String, default: "" },
+  },
+  { _id: true },
+);
+
 const subscriptionSchema = new mongoose.Schema(
   {
     customerId: {
@@ -102,6 +118,25 @@ const subscriptionSchema = new mongoose.Schema(
     cancelledAt: {
       type: Date,
       default: null,
+    },
+    todayDispatchStatus: {
+      status: {
+        type: String,
+        enum: ["PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"],
+        default: "PREPARING",
+      },
+      date: {
+        type: String,
+        default: "",
+      },
+      updatedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+    deliveryHistory: {
+      type: [deliveryHistorySchema],
+      default: [],
     },
   },
   {

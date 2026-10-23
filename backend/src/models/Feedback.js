@@ -54,8 +54,10 @@ const feedbackSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
+
+feedbackSchema.index({ customerId: 1, providerId: 1 }, { unique: true });
 
 const Feedback = mongoose.model("Feedback", feedbackSchema);
 

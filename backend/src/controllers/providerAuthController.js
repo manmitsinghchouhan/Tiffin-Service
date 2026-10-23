@@ -6,6 +6,7 @@ import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { generateToken } from "../utils/jwt.js";
 import { EMPTY_WEEKLY_MENU_TEMPLATE } from "./providerMenuController.js";
+import { validateName, validatePhone, validateEmail } from "../utils/formValidation.js";
 
 // Secure HTTP-Only Cookie Configuration
 export const getCookieOptions = () => ({
@@ -50,6 +51,24 @@ export const providerRegister = asyncHandler(async (req, res) => {
       400,
       "Please provide all required fields: full name, email, phone, password, and confirm password",
     );
+  }
+
+  // Name format validation
+  const nameErr = validateName(ownerName);
+  if (nameErr) {
+    throw new ApiError(400, nameErr);
+  }
+
+  // Phone validation
+  const phoneErr = validatePhone(phone);
+  if (phoneErr) {
+    throw new ApiError(400, phoneErr);
+  }
+
+  // Email format validation
+  const emailErr = validateEmail(email);
+  if (emailErr) {
+    throw new ApiError(400, emailErr);
   }
 
   // Password matching
@@ -237,7 +256,7 @@ export const completeOnboarding = asyncHandler(async (req, res) => {
     serviceArea: normalizedServiceArea,
     foodType: foodType || "BOTH",
     description: description?.trim(),
-    imageUrl: imageUrl?.trim(),
+    imageUrl: imageUrl?.trim() || "/tiffin-hub-logo.svg",
     verificationStatus: "PENDING",
   });
 
