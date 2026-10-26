@@ -22,11 +22,13 @@ FUTURE_ENHANCEMENTS.md
 current_development_task.md
 erp_README.md
 
-# Archives & Large Zips
+# Archives, Documents & Large Zips
 *.zip
 *.tar
 *.tar.gz
 *.rar
+*.docx
+"Document for Tiffin Service.docx"
 
 # Logs
 logs/
