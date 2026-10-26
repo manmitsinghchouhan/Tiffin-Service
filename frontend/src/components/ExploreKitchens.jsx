@@ -87,15 +87,54 @@ export default function ExploreKitchens() {
     }
   };
 
-  // Favorites tracking (local state)
+  // Favorites tracking (loaded from backend if logged-in customer)
   const [favorites, setFavorites] = useState({});
 
-  const toggleFavorite = (id, e) => {
+  useEffect(() => {
+    if (user && isCustomer) {
+      api.get('/customer/saved-kitchens')
+        .then((res) => {
+          const ids = res.data?.savedKitchenIds || [];
+          const favMap = {};
+          ids.forEach((id) => {
+            favMap[id] = true;
+          });
+          setFavorites(favMap);
+        })
+        .catch((err) => {
+          console.error('Failed to load saved favorites:', err);
+        });
+    } else {
+      setFavorites({});
+    }
+  }, [user, isCustomer]);
+
+  const toggleFavorite = async (id, e) => {
     e.stopPropagation();
+    if (!user || !isCustomer) {
+      navigate('/login', {
+        state: { from: 'favorite', message: 'Please log in to save kitchens to your favorites.' }
+      });
+      return;
+    }
+
+    const previousState = Boolean(favorites[id]);
+    // Optimistic UI update
     setFavorites((prev) => ({
       ...prev,
-      [id]: !prev[id]
+      [id]: !previousState,
     }));
+
+    try {
+      await api.post(`/customer/saved-kitchens/${id}/toggle`);
+    } catch (err) {
+      console.error('Failed to toggle saved kitchen:', err);
+      // Revert on failure
+      setFavorites((prev) => ({
+        ...prev,
+        [id]: previousState,
+      }));
+    }
   };
 
   // Fetch cities once on mount

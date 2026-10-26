@@ -3,6 +3,7 @@ import TiffinPlan from "../models/TiffinPlan.js";
 import TiffinProvider from "../models/TiffinProvider.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
+import Payment from "../models/Payment.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
@@ -32,7 +33,7 @@ const parseTimeStringToDate = (timeStr, baseDate = new Date()) => {
  * @access  Private (Customer only)
  */
 export const createSubscription = asyncHandler(async (req, res) => {
-  const { planId, startDate, deliveryAddress, autoRenewal, notes } = req.body;
+  const { planId, startDate, deliveryAddress, autoRenewal, notes, paymentMode = 'TEST_ONLINE' } = req.body;
 
   if (!planId) {
     throw new ApiError(400, "Plan ID is required to subscribe");
@@ -251,7 +252,28 @@ export const createSubscription = asyncHandler(async (req, res) => {
     notes: combinedNotes || `Subscription #${subscription._id}`,
   });
 
-  // 7.1 Auto-save delivery address to customer's address book if not already present
+  // 7.1 Create linked Payment record
+  try {
+    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const transactionId = `TXN_${Date.now()}_${randomSuffix}`;
+
+    await Payment.create({
+      customerId: req.user._id,
+      providerId: plan.providerId,
+      subscriptionId: subscription._id,
+      amount: plan.price,
+      paymentMethod: "UPI",
+      paymentMode: "DIRECT",
+      status: "SUCCESS",
+      transactionId,
+      paymentDate: new Date(),
+      notes: "Direct Online Payment (Confirmed)",
+    });
+  } catch (payErr) {
+    console.error("Failed to create linked payment record:", payErr);
+  }
+
+  // 7.2 Auto-save delivery address to customer's address book if not already present
   try {
     const userDoc = await User.findById(req.user._id);
     if (userDoc) {

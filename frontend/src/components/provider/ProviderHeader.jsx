@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Search,
-  Bell,
   CheckCircle2,
   ChevronDown,
   Menu,
@@ -22,38 +20,18 @@ export default function ProviderHeader({ onOpenMobile, onTriggerNotice, onPrevie
 
   return (
     <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-      {/* Left: Mobile Toggle & Search Input */}
-      <div className="flex items-center gap-3 flex-1 max-w-xl">
+      {/* Left: Mobile Toggle */}
+      <div className="flex items-center gap-3">
         <button
           onClick={onOpenMobile}
-          className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+          className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer"
         >
           <Menu className="w-5 h-5" />
         </button>
-
-        {/* Search Bar matching Image 1 */}
-        <div className="relative w-full max-w-md hidden sm:block">
-          <input
-            type="text"
-            placeholder="Search orders, plans, customers..."
-            onClick={() => onTriggerNotice?.('Search functionality will be connected with live orders')}
-            className="w-full pl-10 pr-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-        </div>
       </div>
 
-      {/* Right: Notification Bell & Kitchen Profile Pill */}
+      {/* Right: Kitchen Profile Pill */}
       <div className="flex items-center gap-4">
-        {/* Notification Bell */}
-        <button
-          onClick={() => onTriggerNotice?.('You have no unread notifications')}
-          className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-        </button>
-
         {/* Profile Pill matching Image 1 */}
         <div className="relative">
           <button

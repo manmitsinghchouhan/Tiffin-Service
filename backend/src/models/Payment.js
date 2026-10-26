@@ -8,6 +8,11 @@ const paymentSchema = new mongoose.Schema(
       required: [true, "Customer ID is required"],
       index: true,
     },
+    providerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TiffinProvider",
+      index: true,
+    },
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
@@ -17,6 +22,16 @@ const paymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subscription",
       index: true,
+    },
+    paymentMode: {
+      type: String,
+      enum: ["DIRECT", "TEST_ONLINE", "COD"],
+      default: "DIRECT",
+    },
+    notes: {
+      type: String,
+      trim: true,
+      default: "",
     },
     transactionId: {
       type: String,

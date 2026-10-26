@@ -30,10 +30,13 @@ import {
   Sparkles,
   Navigation,
   Truck,
-  Phone
+  Phone,
+  Star
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import KitchenDetailModal from '../components/KitchenDetailModal';
+import SubscribeModal from '../components/customer/SubscribeModal';
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
@@ -241,10 +244,10 @@ export default function CustomerDashboard() {
     }
   };
 
-  // URL Tab Synchronization: 'overview' | 'subscriptions' | 'addresses' | 'history'
+  // URL Tab Synchronization: 'overview' | 'subscriptions' | 'addresses' | 'history' | 'saved'
   const tabQuery = searchParams.get('tab');
   const [mainTab, setMainTab] = useState(
-    tabQuery === 'subscriptions' || tabQuery === 'addresses' || tabQuery === 'history'
+    tabQuery === 'subscriptions' || tabQuery === 'addresses' || tabQuery === 'history' || tabQuery === 'saved'
       ? tabQuery
       : 'overview'
   );
@@ -258,6 +261,12 @@ export default function CustomerDashboard() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Saved Kitchens (Favorites) State
+  const [savedKitchens, setSavedKitchens] = useState([]);
+  const [loadingSavedKitchens, setLoadingSavedKitchens] = useState(false);
+  const [selectedKitchenId, setSelectedKitchenId] = useState(null);
+  const [subscribingPlan, setSubscribingPlan] = useState(null);
 
   // Address Book State
   const [addresses, setAddresses] = useState([]);
@@ -294,7 +303,7 @@ export default function CustomerDashboard() {
 
   // Sync state if URL query changes
   useEffect(() => {
-    if (tabQuery === 'subscriptions' || tabQuery === 'addresses' || tabQuery === 'history') {
+    if (tabQuery === 'subscriptions' || tabQuery === 'addresses' || tabQuery === 'history' || tabQuery === 'saved') {
       setMainTab(tabQuery);
     } else if (!tabQuery || tabQuery === 'overview') {
       setMainTab('overview');
@@ -360,10 +369,43 @@ export default function CustomerDashboard() {
     }
   }, []);
 
+  // Fetch Saved Kitchens (Favorites)
+  const fetchSavedKitchens = useCallback(async () => {
+    try {
+      setLoadingSavedKitchens(true);
+      const res = await api.get('/customer/saved-kitchens');
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setSavedKitchens(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load saved kitchens:', err);
+    } finally {
+      setLoadingSavedKitchens(false);
+    }
+  }, []);
+
+  // Remove Kitchen from Saved Favorites
+  const handleRemoveSavedKitchen = async (kitchenId, kitchenName, e) => {
+    if (e) e.stopPropagation();
+    try {
+      setSavedKitchens((prev) => prev.filter((k) => k._id !== kitchenId));
+      setToastMessage({
+        type: 'success',
+        text: `"${kitchenName || 'Kitchen'}" removed from saved kitchens.`,
+      });
+      setTimeout(() => setToastMessage(null), 4000);
+      await api.delete(`/customer/saved-kitchens/${kitchenId}`);
+    } catch (err) {
+      console.error('Failed to remove saved kitchen:', err);
+      fetchSavedKitchens();
+    }
+  };
+
   useEffect(() => {
     fetchSubscriptions();
     fetchAddresses();
-  }, [fetchSubscriptions, fetchAddresses]);
+    fetchSavedKitchens();
+  }, [fetchSubscriptions, fetchAddresses, fetchSavedKitchens]);
 
   // Live Auto-Polling while customer has any pending subscriptions
   useEffect(() => {
@@ -752,11 +794,22 @@ export default function CustomerDashboard() {
             {/* 5. Saved Kitchens */}
             <button
               type="button"
-              onClick={() => navigate('/#subscription')}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer"
+              onClick={() => handleTabSwitch('saved')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                mainTab === 'saved'
+                  ? 'bg-blue-50 text-blue-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
             >
-              <Heart className="w-4 h-4 text-slate-400" />
-              <span>Saved Kitchens</span>
+              <div className="flex items-center gap-3">
+                <Heart className={`w-4 h-4 ${mainTab === 'saved' ? 'text-red-500 fill-red-500' : 'text-slate-400'}`} />
+                <span>Saved Kitchens</span>
+              </div>
+              {savedKitchens.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600">
+                  {savedKitchens.length}
+                </span>
+              )}
             </button>
           </nav>
         </div>
@@ -943,8 +996,8 @@ export default function CustomerDashboard() {
                 <div className="absolute right-0 top-0 -mt-10 -mr-10 w-72 h-72 bg-white/5 rounded-full blur-2xl pointer-events-none" />
               </div>
 
-              {/* Top 3 Live Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {/* Top 4 Live Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {/* Active Subscriptions Card */}
                 <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
                   <div>
@@ -1001,6 +1054,28 @@ export default function CustomerDashboard() {
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                     <MapPin className="w-6 h-6" />
+                  </div>
+                </div>
+
+                {/* Saved Kitchens Card */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                      Saved Kitchens
+                    </span>
+                    <p className="text-3xl font-black text-slate-900 mt-1">
+                      {savedKitchens.length}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleTabSwitch('saved')}
+                      className="text-[11px] text-red-600 font-bold hover:underline mt-1 block text-left cursor-pointer"
+                    >
+                      View Favorites →
+                    </button>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                    <Heart className="w-6 h-6 fill-red-500 text-red-500" />
                   </div>
                 </div>
               </div>
@@ -2422,6 +2497,183 @@ export default function CustomerDashboard() {
             </div>
           )}
 
+          {/* =========================================================================
+              VIEW 5: SAVED KITCHENS (FAVORITES) VIEW
+             ========================================================================= */}
+          {!loading && !error && mainTab === 'saved' && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                    <Heart className="w-7 h-7 text-red-500 fill-red-500" />
+                    <span>Saved Kitchens</span>
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    Your bookmarked tiffin services. Quick access to daily menus, meal plans, and subscriptions.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/#subscription')}
+                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer self-start sm:self-auto"
+                >
+                  <Utensils className="w-4 h-4" />
+                  <span>Explore More Kitchens</span>
+                </button>
+              </div>
+
+              {/* Saved Kitchen Cards Grid */}
+              {loadingSavedKitchens ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+                  <div className="h-64 bg-slate-200/70 rounded-3xl" />
+                  <div className="h-64 bg-slate-200/70 rounded-3xl" />
+                  <div className="h-64 bg-slate-200/70 rounded-3xl" />
+                </div>
+              ) : savedKitchens.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center max-w-md mx-auto border border-slate-200/80 shadow-md">
+                  <div className="w-16 h-16 rounded-3xl bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4">
+                    <Heart className="w-8 h-8 fill-red-400 text-red-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">No Saved Kitchens Yet</h3>
+                  <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                    You haven't bookmarked any tiffin services yet. Tap the heart on any kitchen card to save your favorites for fast re-ordering and plan management!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/#subscription')}
+                    className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md shadow-blue-500/20 cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <Utensils className="w-4 h-4" />
+                    <span>Explore Tiffin Services</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {savedKitchens.map((kitchen) => {
+                    const cardImage = kitchen.bannerUrl || kitchen.imageUrl || '/tiffin-hub-logo.svg';
+                    const foodBadge = kitchen.foodType === 'VEG'
+                      ? { label: 'Pure Veg', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                      : kitchen.foodType === 'NON_VEG'
+                      ? { label: 'Non-Veg', bg: 'bg-amber-50 text-amber-700 border-amber-200' }
+                      : { label: 'Veg & Non-Veg', bg: 'bg-blue-50 text-blue-700 border-blue-200' };
+
+                    return (
+                      <div
+                        key={kitchen._id}
+                        className="bg-white rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between overflow-hidden group"
+                      >
+                        <div>
+                          {/* Kitchen Image Banner */}
+                          <div className="relative aspect-[16/9] bg-slate-900 overflow-hidden">
+                            <img
+                              src={cardImage}
+                              alt={kitchen.businessName}
+                              onError={(e) => {
+                                e.target.src = '/tiffin-hub-logo.svg';
+                              }}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                            
+                            {/* Verified & Food Type Badges */}
+                            <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                              <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                <ShieldCheck className="w-3 h-3" />
+                                <span>Verified</span>
+                              </span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border bg-white/95 ${foodBadge.bg}`}>
+                                {foodBadge.label}
+                              </span>
+                            </div>
+
+                            {/* Remove Favorite Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => handleRemoveSavedKitchen(kitchen._id, kitchen.businessName, e)}
+                              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-red-500 hover:text-red-700 flex items-center justify-center shadow-md transition-all cursor-pointer"
+                              title="Remove from saved kitchens"
+                            >
+                              <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                            </button>
+
+                            {/* City pill bottom left */}
+                            <div className="absolute bottom-3 left-3 flex items-center gap-1 text-white text-xs font-semibold drop-shadow-sm">
+                              <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                              <span>{kitchen.city || 'Ahmedabad'}</span>
+                              {kitchen.serviceArea?.length > 0 && (
+                                <span className="text-[11px] text-slate-200 truncate max-w-[140px]">
+                                  • {kitchen.serviceArea[0]}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Card Content */}
+                          <div className="p-5 space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h3 className="text-base font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                  {kitchen.businessName}
+                                </h3>
+                                {kitchen.tagline && (
+                                  <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                                    {kitchen.tagline}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Rating */}
+                              <div className="flex items-center gap-1 text-amber-500 font-extrabold text-xs bg-amber-50 px-2 py-1 rounded-lg shrink-0">
+                                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                                <span>{kitchen.rating ? kitchen.rating.toFixed(1) : '4.8'}</span>
+                              </div>
+                            </div>
+
+                            {/* Quick stats: Plans count & Starting price */}
+                            <div className="flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100">
+                              <span className="flex items-center gap-1 text-slate-500">
+                                <Utensils className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{kitchen.activePlanCount || (kitchen.samplePlans ? kitchen.samplePlans.length : 1)} Meal Plans</span>
+                              </span>
+                              {kitchen.minPrice > 0 && (
+                                <span className="font-bold text-slate-900">
+                                  Starts ₹{kitchen.minPrice}/mo
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action buttons footer */}
+                        <div className="px-5 pb-5 pt-1 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedKitchenId(kitchen._id)}
+                            className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <span>View Kitchen & Menu</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleRemoveSavedKitchen(kitchen._id, kitchen.businessName, e)}
+                            className="p-2.5 rounded-xl border border-slate-200 hover:bg-red-50 hover:border-red-200 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                            title="Remove from favorites"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -2823,6 +3075,39 @@ export default function CustomerDashboard() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Kitchen Detail Slide-over / Modal */}
+      {selectedKitchenId && (
+        <KitchenDetailModal
+          kitchenId={selectedKitchenId}
+          isOpen={Boolean(selectedKitchenId)}
+          onClose={() => setSelectedKitchenId(null)}
+          onSelectPlan={(plan, kitchen, existingPendingSub) => {
+            setSelectedKitchenId(null);
+            setSubscribingPlan({ plan, kitchen, existingPendingSub });
+          }}
+        />
+      )}
+
+      {/* Subscribe Checkout Modal */}
+      {subscribingPlan && (
+        <SubscribeModal
+          isOpen={Boolean(subscribingPlan)}
+          plan={subscribingPlan.plan}
+          kitchen={subscribingPlan.kitchen}
+          existingPendingSub={subscribingPlan.existingPendingSub}
+          onClose={() => setSubscribingPlan(null)}
+          onSuccess={(newSub) => {
+            setToastMessage({
+              type: 'success',
+              text: `Subscription requested for "${newSub.planSnapshot?.name}". Kitchen is reviewing!`,
+            });
+            fetchSubscriptions(false);
+            handleTabSwitch('subscriptions');
+            setSubFilter('pending');
+          }}
+        />
       )}
 
     </div>

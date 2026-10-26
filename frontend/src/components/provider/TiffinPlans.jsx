@@ -677,13 +677,8 @@ export default function TiffinPlans({ onNavigateToMenu, onToast }) {
                   </div>
                 </div>
 
-                {/* Card Footer: Subscribers & View Menu Link */}
-                <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                    <Users className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{plan.subscribersCount || 18} Subscribers</span>
-                  </div>
-
+                {/* Card Footer: View Menu Link */}
+                <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-end">
                   <button
                     type="button"
                     onClick={() => onNavigateToMenu?.(plan)}

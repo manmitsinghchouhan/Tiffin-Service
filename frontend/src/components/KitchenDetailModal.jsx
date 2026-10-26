@@ -88,6 +88,37 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
     }
   }, [user, isCustomer]);
 
+  // Load initial saved status for this kitchen
+  useEffect(() => {
+    if (user && isCustomer && kitchenId) {
+      api.get('/customer/saved-kitchens')
+        .then((res) => {
+          const savedIds = res.data?.savedKitchenIds || [];
+          setIsFavorite(savedIds.includes(kitchenId.toString()));
+        })
+        .catch(() => {});
+    } else {
+      setIsFavorite(false);
+    }
+  }, [user, isCustomer, kitchenId]);
+
+  const handleToggleFavorite = async () => {
+    if (!user || !isCustomer) {
+      alert('Please log in as a customer to save kitchens to your favorites.');
+      return;
+    }
+
+    const nextState = !isFavorite;
+    setIsFavorite(nextState);
+
+    try {
+      await api.post(`/customer/saved-kitchens/${kitchenId}/toggle`);
+    } catch (err) {
+      console.error('Failed to toggle saved kitchen:', err);
+      setIsFavorite(!nextState);
+    }
+  };
+
   // Auto-select current day of week on initial open
   useEffect(() => {
     const todayIndex = new Date().getDay(); // 0 is Sunday, 1 is Monday...
@@ -375,7 +406,7 @@ export default function KitchenDetailModal({ kitchenId, onClose, onSelectPlan })
                   {/* Favorite Heart Button */}
                   <button
                     type="button"
-                    onClick={() => setIsFavorite(!isFavorite)}
+                    onClick={handleToggleFavorite}
                     className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-600 hover:text-red-500 flex items-center justify-center shadow-sm transition-all cursor-pointer"
                     aria-label="Add to favorites"
                   >

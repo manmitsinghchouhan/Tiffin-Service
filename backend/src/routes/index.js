@@ -9,9 +9,11 @@ import providerSubscriptionRoutes from "./providerSubscriptionRoutes.js";
 import providerCustomerRoutes from "./providerCustomerRoutes.js";
 import providerOrderRoutes from "./providerOrderRoutes.js";
 import providerSettingsRoutes from "./providerSettingsRoutes.js";
+import providerPaymentRoutes from "./providerPaymentRoutes.js";
 import publicKitchenRoutes from "./publicKitchenRoutes.js";
 import customerSubscriptionRoutes from "./customerSubscriptionRoutes.js";
 import customerAddressRoutes from "./customerAddressRoutes.js";
+import customerSavedKitchenRoutes from "./customerSavedKitchenRoutes.js";
 import feedbackRoutes from "./feedbackRoutes.js";
 
 const router = Router();
@@ -28,6 +30,9 @@ router.use("/auth", customerAuthRoutes);
 
 // Customer Address Book Routes
 router.use("/customer/addresses", customerAddressRoutes);
+
+// Customer Saved Kitchens (Favorites)
+router.use("/customer/saved-kitchens", customerSavedKitchenRoutes);
 
 // Customer Subscriptions & Meal Tracking
 router.use("/customer/subscriptions", customerSubscriptionRoutes);
@@ -54,6 +59,9 @@ router.use("/provider/orders", providerOrderRoutes);
 
 // Provider Settings & Security Preferences
 router.use("/provider/settings", providerSettingsRoutes);
+
+// Provider Payments & Revenue Tracking
+router.use("/provider/payments", providerPaymentRoutes);
 
 // Public Customer Kitchen Discovery & Menus
 router.use("/kitchens", publicKitchenRoutes);

@@ -86,6 +86,12 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
+    savedKitchens: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "TiffinProvider",
+      },
+    ],
   },
   {
     timestamps: true,

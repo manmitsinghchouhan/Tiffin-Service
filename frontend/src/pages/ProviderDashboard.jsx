@@ -28,6 +28,7 @@ import Customers from '../components/provider/Customers';
 import BusinessProfile from '../components/provider/BusinessProfile';
 import Settings from '../components/provider/Settings';
 import Feedback from '../components/provider/Feedback';
+import Payments from '../components/provider/Payments';
 import KitchenDetailModal from '../components/KitchenDetailModal';
 
 export default function ProviderDashboard({ initialTab = 'overview' }) {
@@ -283,6 +284,8 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
             />
           ) : activeTab === 'feedback' ? (
             <Feedback onToast={triggerNotice} />
+          ) : activeTab === 'payments' ? (
+            <Payments onToast={triggerNotice} />
           ) : activeTab === 'overview' ? (
             <>
               {/* Top Greeting Headline matching Image 1 */}
@@ -299,21 +302,14 @@ export default function ProviderDashboard({ initialTab = 'overview' }) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!providerProfile?._id) {
-                        triggerNotice("Kitchen profile not loaded. Please set up your business profile first.");
-                        return;
-                      }
-                      setPreviewModalOpen(true);
-                    }}
-                    title="Live customer preview of your kitchen showcase"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200/90 rounded-2xl text-xs font-semibold shadow-xs hover:border-emerald-300 transition-all cursor-pointer"
+                  <Link
+                    to="/"
+                    title="Go to main project page"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200/90 rounded-2xl text-xs font-semibold shadow-xs hover:border-blue-300 transition-all cursor-pointer"
                   >
-                    <span>Preview Public Kitchen</span>
+                    <span>Go to Main Page</span>
                     <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
-                  </button>
+                  </Link>
                 </div>
               </div>
 

@@ -128,7 +128,7 @@ export default function SubscribeModal({ plan, kitchen, onClose, existingSubscri
   const [contactPhone, setContactPhone] = useState(user?.phone || '');
   const [instructions, setInstructions] = useState('');
   const [autoRenewal, setAutoRenewal] = useState(plan?.isSubscriptionAvailable !== false);
-  const [paymentMode, setPaymentMode] = useState('TEST_ONLINE'); // 'TEST_ONLINE' | 'COD'
+  const [paymentMode] = useState('DIRECT');
 
   // Address Book Integration
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -232,13 +232,9 @@ export default function SubscribeModal({ plan, kitchen, onClose, existingSubscri
 
     setLoading(true);
 
-    // If online payment test simulation is selected, show realistic 1.2s gateway delay
-    if (paymentMode === 'TEST_ONLINE') {
-      setSimulationStep('Connecting to secure payment gateway...');
-      await new Promise((r) => setTimeout(r, 600));
-      setSimulationStep('Simulating transaction authorization...');
-      await new Promise((r) => setTimeout(r, 600));
-    }
+    // Realistic quick payment confirmation delay
+    setSimulationStep('Authorizing direct payment...');
+    await new Promise((r) => setTimeout(r, 600));
 
     try {
       const payload = {
@@ -254,6 +250,7 @@ export default function SubscribeModal({ plan, kitchen, onClose, existingSubscri
         },
         autoRenewal: plan.isSubscriptionAvailable ? autoRenewal : false,
         notes: instructions.trim(),
+        paymentMode: 'DIRECT',
       };
 
       const res = await api.post('/customer/subscriptions', payload);
@@ -895,56 +892,39 @@ export default function SubscribeModal({ plan, kitchen, onClose, existingSubscri
                   </div>
                 </div>
 
-                {/* 4. Payment Method Selection (Simulator as agreed) */}
+                {/* 4. Payment Method - Single Direct Payment Option */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Payment Mode
+                      Payment Method
                     </span>
-                    <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      🔒 Secure Checkout
+                    <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Direct Payment</span>
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* Option 1: Dev Test Online Payment */}
-                    <div
-                      onClick={() => setPaymentMode('TEST_ONLINE')}
-                      className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 ${
-                        paymentMode === 'TEST_ONLINE'
-                          ? 'border-blue-600 bg-blue-50/60 shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 bg-slate-50'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
-                        <CreditCard className="w-4 h-4" />
+                  <div className="p-3.5 rounded-2xl border border-blue-600/60 bg-blue-50/50 flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20">
+                        <CreditCard className="w-5 h-5" />
                       </div>
-                      <div className="overflow-hidden">
-                        <p className="text-xs font-bold text-slate-900 leading-tight">
-                          Test Online Payment
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 leading-tight flex items-center gap-1.5">
+                          <span>Direct Payment (UPI / Card / NetBanking)</span>
+                          <span className="text-[10px] font-extrabold bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded">
+                            Instant
+                          </span>
                         </p>
-                        <p className="text-[10px] text-blue-700 font-medium">Instant Dev Approval</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          1-Click payment confirmation • Seamlessly saved in your dashboard
+                        </p>
                       </div>
                     </div>
-
-                    {/* Option 2: Pay on 1st Delivery */}
-                    <div
-                      onClick={() => setPaymentMode('COD')}
-                      className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 ${
-                        paymentMode === 'COD'
-                          ? 'border-blue-600 bg-blue-50/60 shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 bg-slate-50'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                        <Banknote className="w-4 h-4" />
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-xs font-bold text-slate-900 leading-tight">
-                          Pay on 1st Delivery
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-medium">Cash / UPI at Door</p>
-                      </div>
+                    <div className="shrink-0">
+                      <span className="text-xs font-black text-blue-700 bg-white px-2.5 py-1 rounded-xl border border-blue-200">
+                        ₹{plan.price.toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </div>
