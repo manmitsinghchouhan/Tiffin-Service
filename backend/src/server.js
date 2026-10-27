@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import app from "./app.js";
-import { connectDB, disconnectDB } from "./config/database.js";
+import { connectDB, disconnectDB, ensureAdminExists } from "./config/database.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await connectDB();
+    await ensureAdminExists();
 
     const server = app.listen(PORT, () => {
       console.log(
