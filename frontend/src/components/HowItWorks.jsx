@@ -1,6 +1,6 @@
 import React from "react";
 import step1Img from "../assets/step-1-discover.png";
-import step2Img from "../assets/step-2-menu.png";
+import step2Img from "../assets/step-2-Menu.png";
 import step3Img from "../assets/step-3-Approval.png";
 
 export default function HowItWorks() {
