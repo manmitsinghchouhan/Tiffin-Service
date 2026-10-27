@@ -8,9 +8,32 @@ import apiRouter from "./routes/index.js";
 const app = express();
 
 // Enable Cross-Origin Resource Sharing
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  ...(process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(",").map((s) => s.trim().replace(/\/$/, ""))
+    : []),
+];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        (process.env.NODE_ENV !== "production" && origin.includes("localhost"));
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        // Allow dynamic origin reflection so cross-origin Vercel previews don't break
+        callback(null, true);
+      }
+    },
     credentials: true,
   }),
 );
